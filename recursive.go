@@ -19,6 +19,7 @@ import (
 func (o *operation) pullFile(src, dst string, entry *adb.DirEntry, device *adb.Device, recursive bool) error {
 	remote, err := device.OpenRead(src)
 	if err != nil {
+		addLog(fmt.Sprintf("pull %s %s", src, dst), "", true)
 		return err
 	}
 	defer remote.Close()
@@ -35,6 +36,10 @@ func (o *operation) pullFile(src, dst string, entry *adb.DirEntry, device *adb.D
 	_, err = io.Copy(local, &prgIn)
 	if err != nil {
 		return err
+	}
+
+	if !recursive {
+		addLog(fmt.Sprintf("pull %s %s", src, dst), "success", false)
 	}
 
 	o.updatePb()
@@ -59,7 +64,12 @@ func (o *operation) pullRecursive(src, dst string, device *adb.Device) error {
 		return err
 	}
 
-	if !stat.Mode.IsDir() {
+	isDir := stat.Mode.IsDir()
+	if isDir {
+		addLog(fmt.Sprintf("pull -r %s %s", src, dst), "pulling directory...", false)
+	}
+
+	if !isDir {
 		return o.pullFile(src, dst, stat, device, false)
 	}
 
@@ -118,6 +128,7 @@ func (o *operation) pushFile(src, dst string, entry os.FileInfo, device *adb.Dev
 
 	remote, err := device.OpenWrite(dst, perms, mtime)
 	if err != nil {
+		addLog(fmt.Sprintf("push %s %s", src, dst), "", true)
 		return err
 	}
 	defer remote.Close()
@@ -128,6 +139,10 @@ func (o *operation) pushFile(src, dst string, entry os.FileInfo, device *adb.Dev
 	_, err = io.Copy(remote, &prgIn)
 	if err != nil {
 		return err
+	}
+
+	if !recursive {
+		addLog(fmt.Sprintf("push %s %s", src, dst), "success", false)
 	}
 
 	o.updatePb()
@@ -153,7 +168,12 @@ func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
 		return err
 	}
 
-	if !stat.Mode().IsDir() {
+	isDir := stat.Mode().IsDir()
+	if isDir {
+		addLog(fmt.Sprintf("push -r %s %s", src, dst), "pushing directory...", false)
+	}
+
+	if !isDir {
 		return o.pushFile(src, dst, stat, device, false)
 	}
 
@@ -165,6 +185,9 @@ func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
 
 	cmd := fmt.Sprintf("mkdir '%s'", dst)
 	out, err := device.RunCommand(cmd)
+
+	addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+
 	if err != nil {
 		return err
 	} else if out != "" {
@@ -174,6 +197,9 @@ func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
 	mode := fmt.Sprintf("%04o", stat.Mode().Perm())
 	cmd = fmt.Sprintf("chmod %s '%s'", mode, dst)
 	out, err = device.RunCommand(cmd)
+
+	addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+
 	if err != nil {
 		return err
 	} else if out != "" {
@@ -313,6 +339,9 @@ func (o *operation) getTotalFiles(src string) error {
 
 		cmd := fmt.Sprintf("find '%s' -type f | wc -l", src)
 		out, err := device.RunCommand(cmd)
+
+		addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+
 		if err != nil {
 			return err
 		}
@@ -324,6 +353,9 @@ func (o *operation) getTotalFiles(src string) error {
 
 		cmd = fmt.Sprintf("du -d0 -sh '%s'", src)
 		out, err = device.RunCommand(cmd)
+
+		addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+
 		if err != nil {
 			return err
 		}

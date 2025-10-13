@@ -204,8 +204,11 @@ func setupPaneView() *tview.Flex {
 		AddItem(auxPane.table, 0, 1, false).
 		SetDirection(tview.FlexRow)
 
+	logViewFlex := setupLogView()
+
 	mainFlex = tview.NewFlex().
 		AddItem(wrapVertical, 0, 1, true).
+		AddItem(logViewFlex, 6, 0, false).
 		AddItem(statuspgs, 1, 0, false).
 		SetDirection(tview.FlexRow)
 
@@ -453,6 +456,16 @@ func resetOpsView() {
 }
 
 func swapLayout(selPane, auxPane *dirPane) {
+	var logViewFlex *tview.Flex
+	for i := 0; i < mainFlex.GetItemCount(); i++ {
+		item := mainFlex.GetItem(i)
+		if item != wrapVertical && item != wrapHorizontal && item != statuspgs {
+			logViewFlex = item.(*tview.Flex)
+			break
+		}
+	}
+
+	mainFlex.RemoveItem(logViewFlex)
 	mainFlex.RemoveItem(statuspgs)
 
 	if !layoutToggle {
@@ -465,6 +478,7 @@ func swapLayout(selPane, auxPane *dirPane) {
 		mainFlex.AddItem(wrapVertical, 0, 1, true)
 	}
 
+	mainFlex.AddItem(logViewFlex, 6, 0, false)
 	mainFlex.AddItem(statuspgs, 1, 0, false)
 
 	selPane.reselect(false)

@@ -45,6 +45,9 @@ func isAdbSymDir(testPath, name string) bool {
 
 	cmd := fmt.Sprintf("ls -pd %s%s/", testPath, name)
 	out, err := device.RunCommand(cmd)
+
+	addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+
 	if err != nil {
 		return false
 	}
@@ -129,6 +132,8 @@ func (o *operation) execAdbCmd(src, dst string, device *adb.Device) error {
 
 	cmd = cmd + param
 	out, err := exec.CommandContext(o.ctx, "adb", "shell", cmd).Output()
+
+	addLog(fmt.Sprintf("shell %s", cmd), string(out), err != nil)
 
 	if err != nil {
 		if err.Error() == "signal: killed" {
