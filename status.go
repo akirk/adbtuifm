@@ -105,7 +105,8 @@ func getStatusInput(msg string, accept bool) *tview.InputField {
 		input.SetAcceptanceFunc(tview.InputFieldMaxLength(1))
 	}
 
-	input.SetLabelColor(tcell.ColorWhite)
+	input.SetLabelColor(tcell.ColorDefault)
+	input.SetFieldTextColor(tcell.ColorDefault)
 	input.SetBackgroundColor(tcell.ColorDefault)
 	input.SetFieldBackgroundColor(tcell.ColorDefault)
 

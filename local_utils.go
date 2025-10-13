@@ -361,7 +361,7 @@ func setEntryColor(col int, sel bool, perms string) (tcell.Color, tcell.AttrMask
 			return tcell.ColorOrange, tcell.AttrBold
 		}
 
-		return tcell.ColorLightSlateGrey, tcell.AttrBold
+		return tcell.ColorDefault, tcell.AttrDim
 	}
 
 	if sel {
@@ -371,26 +371,26 @@ func setEntryColor(col int, sel bool, perms string) (tcell.Color, tcell.AttrMask
 	switch perms[0] {
 	case '-':
 		if strings.Contains(perms, "x") {
-			return tcell.Color82, tcell.AttrNone
+			return tcell.ColorGreen, tcell.AttrNone
 		}
 
 	case 'l':
-		return tcell.ColorAqua, tcell.AttrBold
+		return tcell.ColorTeal, tcell.AttrBold
 
 	case 'd':
-		return tcell.ColorBlue, tcell.AttrBold
+		return tcell.ColorNavy, tcell.AttrBold
 
 	case 's':
-		return tcell.ColorViolet, tcell.AttrBold
+		return tcell.ColorPurple, tcell.AttrBold
 
 	case 'p', 'c':
-		return tcell.ColorYellow, tcell.AttrBold
+		return tcell.ColorOlive, tcell.AttrBold
 
 	case 'u', 't':
-		return tcell.ColorRed, tcell.AttrBold
+		return tcell.ColorMaroon, tcell.AttrBold
 	}
 
-	return tcell.ColorWhite, tcell.AttrNone
+	return tcell.ColorDefault, tcell.AttrNone
 }
 
 func execCmd(cmdtext, emode, imode string) (*exec.Cmd, error) {

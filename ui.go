@@ -143,7 +143,7 @@ func setupPaneView() *tview.Flex {
 					centerY,
 					tview.BoxDrawingsLightHorizontal,
 					nil,
-					tcell.StyleDefault.Foreground(tcell.ColorWhite),
+					tcell.StyleDefault.Foreground(tcell.ColorDefault),
 				)
 			}
 
@@ -160,7 +160,7 @@ func setupPaneView() *tview.Flex {
 					cy,
 					tview.BoxDrawingsLightVertical,
 					nil,
-					tcell.StyleDefault.Foreground(tcell.ColorWhite),
+					tcell.StyleDefault.Foreground(tcell.ColorDefault),
 				)
 			}
 
@@ -380,8 +380,7 @@ func setupPane(selPane, auxPane *dirPane) {
 
 		cell.SetSelectedStyle(tcell.Style{}.
 			Foreground(cell.Color).
-			Background(tcell.Color16).
-			Attributes(cell.Attributes))
+			Attributes(cell.Attributes | tcell.AttrReverse))
 	})
 
 	selPane.ChangeDir(false, false)
@@ -604,7 +603,7 @@ func (p *dirPane) updateDirPane(row int, sel bool, dir *adb.DirEntry) {
 
 			cell.SetSelectable(true)
 			cell.SetSelectedStyle(tcell.Style{}.
-				Attributes(tcell.AttrBold))
+				Attributes(tcell.AttrBold | tcell.AttrReverse))
 		} else {
 			_, _, w, _ := pages.GetRect()
 			cell.SetMaxWidth(w - 40)
