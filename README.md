@@ -1,7 +1,9 @@
 
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/darkhz/adbtuifm)](https://goreportcard.com/report/github.com/darkhz/adbtuifm)
+[![Go Report Card](https://goreportcard.com/badge/github.com/akirk/adbtuifm)](https://goreportcard.com/report/github.com/akirk/adbtuifm)
 # adbtuifm
+
+This is a fork of [darkhz/adbtuifm](https://github.com/darkhz/adbtuifm) that makes this work better for me in macOS. Feel free to also use it.
 
 ![demo](demo/demo.gif)
 
@@ -35,7 +37,7 @@ This is a work in progress.
 
 # Installation
 ```
-go get -u github.com/darkhz/adbtuifm
+go get -u github.com/akirk/adbtuifm
 ```
 # Usage
 ```

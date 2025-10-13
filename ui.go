@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/darkhz/tview"
@@ -621,11 +622,12 @@ func (p *dirPane) reselect(force bool) {
 func (p *dirPane) updateDirPane(row int, sel bool, dir *adb.DirEntry) {
 	entry := getListEntry(dir)
 
-	for col, dname := range entry {
-		if !layoutToggle && col > 0 {
-			dname = ""
-		}
+	perms := strings.ToLower(dir.Mode.String())
+	if len(perms) > 10 {
+		perms = perms[1:]
+	}
 
+	for col, dname := range entry {
 		if col == 0 {
 			mode := dir.Mode&os.ModeDir != 0
 			if len(dname) > 0 && mode {
@@ -633,16 +635,18 @@ func (p *dirPane) updateDirPane(row int, sel bool, dir *adb.DirEntry) {
 			}
 		}
 
-		color, attr := setEntryColor(col, sel, entry[1])
+		color, attr := setEntryColor(col, sel, perms)
 
 		cell := tview.NewTableCell(tview.Escape(dname))
 		cell.SetReference(dir)
 
 		if col > 0 {
+			// Column 1: size (right-aligned)
+			// Column 2: date (right-aligned)
 			if col == 1 {
 				cell.SetExpansion(1)
-				cell.SetAlign(tview.AlignRight)
 			}
+			cell.SetAlign(tview.AlignRight)
 
 			cell.SetSelectable(true)
 			cell.SetSelectedStyle(tcell.Style{}.

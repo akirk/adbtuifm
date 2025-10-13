@@ -1,4 +1,4 @@
-module github.com/darkhz/adbtuifm
+module github.com/akirk/adbtuifm
 
 go 1.16
 

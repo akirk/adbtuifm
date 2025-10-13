@@ -335,17 +335,37 @@ func (o *operation) localOps(src, dst string) error {
 	return err
 }
 
-func getListEntry(dir *adb.DirEntry) []string {
-	perms := strings.ToLower(dir.Mode.String())
+func formatFileSize(size int32) string {
+	if size < 0 {
+		size = 0
+	}
 
-	if len(perms) > 10 {
-		perms = perms[1:]
+	bytes := float64(size)
+
+	switch {
+	case bytes >= 1<<30:
+		return fmt.Sprintf("%.1fG", bytes/(1<<30))
+	case bytes >= 1<<20:
+		return fmt.Sprintf("%.1fM", bytes/(1<<20))
+	case bytes >= 1<<10:
+		return fmt.Sprintf("%.1fK", bytes/(1<<10))
+	default:
+		return fmt.Sprintf("%dB", int(bytes))
+	}
+}
+
+func getListEntry(dir *adb.DirEntry) []string {
+	var sizeStr string
+	if dir.Mode.IsDir() {
+		sizeStr = "-"
+	} else {
+		sizeStr = formatFileSize(dir.Size)
 	}
 
 	entry := []string{
 		dir.Name,
-		perms,
-		dir.ModifiedAt.Format("02 Jan 2006 03:04 PM"),
+		sizeStr,
+		dir.ModifiedAt.Format("2006-01-02 15:04"),
 	}
 
 	return entry
