@@ -36,6 +36,7 @@ func opsHandler(selPane, auxPane *dirPane, key rune) {
 	switch key {
 	case 'p', 'P', 'm', 'd':
 		if len(multiselection) == 0 {
+			showInfoMsg("No items selected. Use Space to select items first.")
 			return
 		}
 

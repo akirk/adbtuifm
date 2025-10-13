@@ -82,12 +82,10 @@ func stopStatus() {
 func setupStatus() {
 	statuspgs = tview.NewPages()
 
-	statusmsg = tview.NewTextView()
-	statusmsg.SetDynamicColors(true)
+	statusmsg = newTextView()
 
 	statuspgs.AddPage("statusmsg", statusmsg, true, true)
 
-	statusmsg.SetBackgroundColor(tcell.ColorDefault)
 	statuspgs.SetBackgroundColor(tcell.ColorDefault)
 
 	sctx, scancel = context.WithCancel(context.Background())

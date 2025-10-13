@@ -48,6 +48,7 @@ var (
 	boxVertical       *tview.Box
 	boxHorizontal     *tview.Box
 	boxTitleSeparator *tview.Box
+	boxLogSeparator   *tview.Box
 
 	appSuspend bool
 )
@@ -74,6 +75,14 @@ func newDirPane(selpane bool) *dirPane {
 		plock:  semaphore.NewWeighted(1),
 		hidden: true,
 	}
+}
+
+func newTextView() *tview.TextView {
+	tv := tview.NewTextView()
+	tv.SetDynamicColors(true)
+	tv.SetTextColor(tcell.ColorDefault)
+	tv.SetBackgroundColor(tcell.ColorDefault)
+	return tv
 }
 
 func setupUI() {
@@ -170,6 +179,22 @@ func setupPaneView() *tview.Flex {
 	boxTitleSeparator = tview.NewBox().
 		SetBackgroundColor(tcell.ColorDefault)
 
+	boxLogSeparator = tview.NewBox().
+		SetBackgroundColor(tcell.ColorDefault).
+		SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+			for cx := x; cx < x+width; cx++ {
+				screen.SetContent(
+					cx,
+					y,
+					tview.BoxDrawingsLightHorizontal,
+					nil,
+					tcell.StyleDefault.Foreground(tcell.ColorDefault),
+				)
+			}
+
+			return x, y, width, height
+		})
+
 	panes = tview.NewFlex().
 		AddItem(selPane.table, 0, 1, true).
 		AddItem(boxVertical, 5, 0, false).
@@ -208,6 +233,7 @@ func setupPaneView() *tview.Flex {
 
 	mainFlex = tview.NewFlex().
 		AddItem(wrapVertical, 0, 1, true).
+		AddItem(boxLogSeparator, 1, 0, false).
 		AddItem(logViewFlex, 6, 0, false).
 		AddItem(statuspgs, 1, 0, false).
 		SetDirection(tview.FlexRow)
@@ -219,7 +245,7 @@ func setupPaneView() *tview.Flex {
 
 func setupOpsView() *tview.Flex {
 	opsView = tview.NewTable()
-	opsTitle := tview.NewTextView()
+	opsTitle := newTextView()
 
 	opsFlex := tview.NewFlex().
 		AddItem(opsTitle, 1, 0, false).
@@ -269,10 +295,7 @@ func setupOpsView() *tview.Flex {
 
 	opsView.SetSelectable(true, false)
 
-	opsTitle.SetDynamicColors(true)
 	opsTitle.SetText("[::bu]Operations")
-	opsTitle.SetTextColor(tcell.ColorDefault)
-	opsTitle.SetBackgroundColor(tcell.ColorDefault)
 
 	opsView.SetBorderColor(tcell.ColorDefault)
 	opsView.SetBackgroundColor(tcell.ColorDefault)
@@ -338,6 +361,9 @@ func setupPane(selPane, auxPane *dirPane) {
 
 		case 'S':
 			showEditSelections(nil)
+
+		case 'l':
+			showFullscreenLog()
 
 		case '[':
 			swapLayout(selPane, auxPane)
@@ -460,12 +486,13 @@ func swapLayout(selPane, auxPane *dirPane) {
 	var logViewFlex *tview.Flex
 	for i := 0; i < mainFlex.GetItemCount(); i++ {
 		item := mainFlex.GetItem(i)
-		if item != wrapVertical && item != wrapHorizontal && item != statuspgs {
+		if item != wrapVertical && item != wrapHorizontal && item != statuspgs && item != boxLogSeparator {
 			logViewFlex = item.(*tview.Flex)
 			break
 		}
 	}
 
+	mainFlex.RemoveItem(boxLogSeparator)
 	mainFlex.RemoveItem(logViewFlex)
 	mainFlex.RemoveItem(statuspgs)
 
@@ -479,6 +506,7 @@ func swapLayout(selPane, auxPane *dirPane) {
 		mainFlex.AddItem(wrapVertical, 0, 1, true)
 	}
 
+	mainFlex.AddItem(boxLogSeparator, 1, 0, false)
 	mainFlex.AddItem(logViewFlex, 6, 0, false)
 	mainFlex.AddItem(statuspgs, 1, 0, false)
 
@@ -763,6 +791,7 @@ func showHelp() {
 		"CD highlighted entry ":                 "Enter, Right",
 		"Change one directory back ":            "Backspace, Left",
 		"Switch to operations page ":            "o",
+		"View fullscreen log ":                  "l",
 		"Switch between ADB/Local ":             "s, <",
 		"Change to any directory ":              "g, >",
 		"Toggle hidden files ":                  "h, .",
