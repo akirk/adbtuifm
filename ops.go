@@ -387,7 +387,7 @@ func confirmOperation(selPane, auxPane *dirPane, opmode opsMode, overwrite bool,
 		msg += " (will overwrite existing)"
 	}
 
-	msg += " [y/n/S]?"
+	msg += " (Y/n)?"
 
-	showConfirmMsg(msg, doFunc, resetFunc)
+	showConfirmMsg(msg, "y", doFunc, resetFunc)
 }

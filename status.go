@@ -123,7 +123,7 @@ func showErrorMsg(err error, autocomplete bool) {
 	msgchan <- message{"[red::b]" + tview.Escape(err.Error()), false}
 }
 
-func showConfirmMsg(msg string, doFunc, resetFunc func()) {
+func showConfirmMsg(msg string, defaultChoice string, doFunc, resetFunc func()) {
 	input := getStatusInput(msg, true)
 
 	exit := func(reset bool) {
@@ -154,6 +154,11 @@ func showConfirmMsg(msg string, doFunc, resetFunc func()) {
 
 		text := input.GetText()
 		input.SetText("")
+
+		// Use default if no input provided
+		if text == "" {
+			text = defaultChoice
+		}
 
 		switch text {
 		case "y":
@@ -196,11 +201,6 @@ func showConfirmMsg(msg string, doFunc, resetFunc func()) {
 		case tcell.KeyUp, tcell.KeyDown:
 			exit(false)
 			prevPane.table.InputHandler()(event, nil)
-		}
-
-		switch event.Rune() {
-		case 'S':
-			showEditSelections(input)
 		}
 
 		return event

@@ -239,6 +239,11 @@ func (p *dirPane) doChangeDir(cdFwd bool, cdBack bool, tpath ...string) {
 		testPath = p.path
 	}
 
+	if cdFwd && p.entry != nil && p.entry.Name == ".." {
+		cdFwd = false
+		cdBack = true
+	}
+
 	if cdFwd && (p.entry == nil || !p.isDir(testPath)) {
 		return
 	}
@@ -330,6 +335,7 @@ func resizeDirEntries(width int) {
 func (p *dirPane) createDirList(cdFwd, cdBack bool, prevDir string) {
 	app.QueueUpdateDraw(func() {
 		var pos int
+		var row int
 
 		if p.filter && (!cdFwd && !cdBack) {
 			p.setPaneSelectable(true)
@@ -339,26 +345,38 @@ func (p *dirPane) createDirList(cdFwd, cdBack bool, prevDir string) {
 
 		p.table.Clear()
 
+		if p.path != "/" && p.path != "" {
+			parentDir := &adb.DirEntry{
+				Name: "..",
+				Mode: os.ModeDir | 0755,
+			}
+			p.updateDirPane(row, false, parentDir)
+			row++
+		}
+
 		totalrows := len(p.pathList)
 
-		for row, dir := range p.pathList {
-			switch {
-			case cdBack:
-				if dir.Name == prevDir || dir.Name == prevDir+"/" {
-					pos = row
-				}
+		// Calculate position once before the loop
+		if !cdFwd && !cdBack {
+			// When refreshing, keep the same row position
+			// p.row already accounts for the ".." entry
+			maxPos := row + totalrows - 1
+			if p.row > maxPos {
+				pos = maxPos
+			} else {
+				pos = p.row
+			}
+		}
 
-			case !cdFwd && !cdBack:
-				if p.row >= totalrows {
-					pos = totalrows - 1
-				} else {
-					pos = p.row
-				}
+		for _, dir := range p.pathList {
+			if cdBack && (dir.Name == prevDir || dir.Name == prevDir+"/") {
+				pos = row
 			}
 
 			sel := checkSelected(p.path, dir.Name, false)
 
 			p.updateDirPane(row, sel, dir)
+			row++
 		}
 
 		p.setPaneTitle()

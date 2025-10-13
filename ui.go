@@ -20,6 +20,7 @@ type dirPane struct {
 	finput      string
 	filter      bool
 	hidden      bool
+	focused     bool
 	mode        ifaceMode
 	table       *tview.Table
 	plock       *semaphore.Weighted
@@ -138,8 +139,12 @@ func setupPaneView() *tview.Flex {
 	prevPane = selPane
 
 	setupStatus()
-	setupPane(selPane, auxPane)
-	setupPane(auxPane, selPane)
+
+	selPane.focused = true
+	auxPane.focused = false
+
+	setupPane(selPane, auxPane, true)
+	setupPane(auxPane, selPane, true)
 
 	boxVertical = tview.NewBox().
 		SetBackgroundColor(tcell.ColorDefault).
@@ -278,7 +283,7 @@ func setupOpsView() *tview.Flex {
 }
 
 //gocyclo:ignore
-func setupPane(selPane, auxPane *dirPane) {
+func setupPane(selPane, auxPane *dirPane, loadDir bool) {
 	selPane.table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		prevPane = selPane
 
@@ -374,7 +379,7 @@ func setupPane(selPane, auxPane *dirPane) {
 	selPane.table.SetSelectionChangedFunc(func(row, col int) {
 		rows := selPane.table.GetRowCount()
 
-		if row < 0 || row > rows {
+		if rows == 0 || row < 0 || row > rows {
 			return
 		}
 
@@ -387,7 +392,9 @@ func setupPane(selPane, auxPane *dirPane) {
 			Attributes(tcell.AttrReverse))
 	})
 
-	selPane.ChangeDir(false, false)
+	if loadDir {
+		selPane.ChangeDir(false, false)
+	}
 }
 
 func suspendUI(t tcell.Screen) {
@@ -416,6 +423,9 @@ func opsPage() {
 }
 
 func paneswitch(selPane, auxPane *dirPane) {
+	selPane.focused = false
+	auxPane.focused = true
+
 	auxPane.reselect(false)
 	app.SetFocus(auxPane.table)
 	selPane.table.SetSelectable(false, false)
@@ -425,6 +435,9 @@ func paneswitch(selPane, auxPane *dirPane) {
 func reset(selPane, auxPane *dirPane) {
 	selected = false
 	multiselection = make(map[string]ifaceMode)
+
+	selPane.focused = true
+	auxPane.focused = false
 
 	selPane.table.SetSelectable(false, false)
 	selPane.reselect(true)
@@ -506,9 +519,21 @@ func (p *dirPane) reselect(force bool) {
 			p.updateDirPane(row, checksel, dir)
 		}
 	} else {
-		for row, dir := range p.pathList {
+		var row int
+
+		if p.path != "/" && p.path != "" {
+			parentDir := &adb.DirEntry{
+				Name: "..",
+				Mode: os.ModeDir | 0755,
+			}
+			p.updateDirPane(row, false, parentDir)
+			row++
+		}
+
+		for _, dir := range p.pathList {
 			checksel := checkSelected(p.path, dir.Name, false)
 			p.updateDirPane(row, checksel, dir)
+			row++
 		}
 
 		p.filter = false
@@ -546,11 +571,8 @@ func (p *dirPane) updateDirPane(row int, sel bool, dir *adb.DirEntry) {
 				cell.SetExpansion(1)
 			}
 			cell.SetAlign(tview.AlignRight)
-
-			cell.SetSelectable(true)
-			cell.SetSelectedStyle(tcell.Style{}.
-				Attributes(tcell.AttrBold | tcell.AttrReverse))
 		} else {
+			cell.SetSelectable(true)
 			_, _, w, _ := pages.GetRect()
 			cell.SetMaxWidth(w - 40)
 		}
@@ -618,7 +640,7 @@ func (p *dirPane) setPaneTitle() {
 
 func (p *dirPane) setPaneSelectable(status bool) {
 	if status {
-		p.table.SetSelectable(true, false)
+		p.table.SetSelectable(p.focused, false)
 		return
 	}
 
@@ -664,9 +686,9 @@ func stopApp() {
 		quitmsg += " (jobs are still running)"
 	}
 
-	quitmsg += " (y/n)?"
+	quitmsg += " (y/N)?"
 
-	showConfirmMsg(quitmsg, func() {
+	showConfirmMsg(quitmsg, "n", func() {
 		stopUI()
 	}, func() {})
 }
