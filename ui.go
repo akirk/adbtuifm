@@ -286,7 +286,7 @@ func setupPane(selPane, auxPane *dirPane) {
 		case tcell.KeyEscape:
 			reset(selPane, auxPane)
 
-		case tcell.KeyTab:
+		case tcell.KeyTab, tcell.KeyBacktab:
 			paneswitch(selPane, auxPane)
 
 		case tcell.KeyCtrlO:
