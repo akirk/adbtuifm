@@ -686,9 +686,9 @@ func stopApp() {
 		quitmsg += " (jobs are still running)"
 	}
 
-	quitmsg += " (y/N)?"
+	quitmsg += " (Y/n)?"
 
-	showConfirmMsg(quitmsg, "n", func() {
+	showConfirmMsg(quitmsg, "y", func() {
 		stopUI()
 	}, func() {})
 }

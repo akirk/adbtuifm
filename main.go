@@ -20,41 +20,46 @@ var (
 )
 
 func main() {
-	cmdAPath := kingpin.Flag("remote", "Specify the remote path to start in").
+	cmdAPath := kingpin.Arg("remote-path", "Remote (ADB) path to start in").
 		Default("/sdcard").String()
-
-	cwd, _ := os.Getwd()
-	cmdLPath := kingpin.Flag("local", "Specify the local path to start in").
-		Default(cwd).String()
 
 	kingpin.Parse()
 
-	_, err := os.Lstat(*cmdLPath)
+	cwd, _ := os.Getwd()
+	cmdLPath := cwd
+
+	_, err := os.Lstat(cmdLPath)
 	if err != nil {
-		fmt.Printf("adbtuifm: %s: Invalid local path\n", *cmdLPath)
+		fmt.Printf("adbtuifm: %s: Invalid local path\n", cmdLPath)
 		return
 	}
 
 	initSelMode = mLocal
-	initSelPath, _ = filepath.Abs(*cmdLPath)
+	initSelPath, _ = filepath.Abs(cmdLPath)
 
 	device, err := getAdb()
-	if device != nil {
-		_, err := device.Stat(*cmdAPath)
-		if err != nil {
-			fmt.Printf("adbtuifm: %s: Invalid remote path\n", *cmdAPath)
-			return
-		}
-
-		initAuxMode = mAdb
-		initAuxPath = *cmdAPath
-	} else {
-		initAuxMode = mLocal
-		initAuxPath = initSelPath
+	if device == nil {
+		fmt.Printf("adbtuifm: No ADB device connected\n")
+		return
 	}
 
-	initAPath = *cmdAPath
-	initLPath, _ = filepath.Abs(*cmdLPath)
+	// Make remote path relative to /sdcard if it doesn't start with /
+	adbPath := *cmdAPath
+	if len(adbPath) > 0 && adbPath[0] != '/' {
+		adbPath = filepath.Join("/sdcard", adbPath)
+	}
+
+	_, err = device.Stat(adbPath)
+	if err != nil {
+		fmt.Printf("adbtuifm: %s: Invalid remote path\n", adbPath)
+		return
+	}
+
+	initAuxMode = mAdb
+	initAuxPath = adbPath
+
+	initAPath = adbPath
+	initLPath, _ = filepath.Abs(cmdLPath)
 
 	jobNum = 0
 	selected = false

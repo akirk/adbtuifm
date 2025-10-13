@@ -45,12 +45,31 @@ go get -u github.com/akirk/adbtuifm
 ```
 # Usage
 ```
-adbtuifm [<flags>]
+adbtuifm [<remote-path>]
 
-Flags:
-  --remote=<path>     Specify the remote(ADB) path to start in
-  --local=<path>      Specify the local path to start in
-  ```
+Arguments:
+  [<remote-path>]     Remote (ADB) path to start in (default: /sdcard)
+```
+
+The local directory is always set to your current working directory.
+
+**Note:** If the remote path doesn't start with `/`, it will be treated as relative to `/sdcard/`.
+
+Examples:
+```bash
+# Start with default ADB path (/sdcard) and current directory
+adbtuifm
+
+# Start with a specific ADB directory using absolute path
+adbtuifm /sdcard/Downloads
+
+# Start with a relative ADB path (resolved to /sdcard/Downloads)
+adbtuifm Downloads
+
+# Start in a specific local directory with custom ADB path
+cd ~/Documents
+adbtuifm Music   # Opens /sdcard/Music on device
+```
 
 # Keybindings
 
