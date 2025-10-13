@@ -22,10 +22,9 @@ type sortData struct {
 }
 
 var (
-	dirWidth  int
-	dirLayout bool
-	pathLock  sync.Mutex
-	sortLock  sync.Mutex
+	dirWidth int
+	pathLock sync.Mutex
+	sortLock sync.Mutex
 )
 
 func trimName(name string, length int, rev bool) string {
@@ -155,6 +154,79 @@ func (p *dirPane) localListDir(testPath string, autocomplete bool) ([]string, bo
 	return dlist, true
 }
 
+func (p *dirPane) addToHistory(path string, mode ifaceMode) {
+	if p.historyPos < len(p.history)-1 {
+		p.history = p.history[:p.historyPos+1]
+		p.historyMode = p.historyMode[:p.historyPos+1]
+	}
+
+	if len(p.history) == 0 || p.history[len(p.history)-1] != path {
+		p.history = append(p.history, path)
+		p.historyMode = append(p.historyMode, mode)
+		p.historyPos = len(p.history) - 1
+	}
+}
+
+func (p *dirPane) navigateHistory(forward bool) {
+	if !p.getLock() {
+		return
+	}
+	defer p.setUnlock()
+
+	if forward {
+		if p.historyPos >= len(p.history)-1 {
+			showInfoMsg("No forward history")
+			return
+		}
+		p.historyPos++
+	} else {
+		if p.historyPos <= 0 {
+			showInfoMsg("No back history")
+			return
+		}
+		p.historyPos--
+	}
+
+	testPath := p.history[p.historyPos]
+	testMode := p.historyMode[p.historyPos]
+
+	if testMode != p.mode {
+		switch testMode {
+		case mAdb:
+			if !checkAdb() {
+				p.historyPos-- // revert if forward, or increment if back
+				if forward {
+					p.historyPos--
+				} else {
+					p.historyPos++
+				}
+				return
+			}
+		}
+		p.mode = testMode
+	}
+
+	var listed bool
+	p.setPaneSelectable(false)
+
+	switch p.mode {
+	case mAdb:
+		_, listed = p.adbListDir(testPath, false)
+
+	case mLocal:
+		_, listed = p.localListDir(filepath.FromSlash(testPath), false)
+	}
+
+	if !listed {
+		p.setPaneSelectable(true)
+		return
+	}
+
+	p.setPath(filepath.ToSlash(testPath))
+	p.sortDirList(p.pathList)
+	p.createDirList(false, false, "")
+}
+
 func (p *dirPane) doChangeDir(cdFwd bool, cdBack bool, tpath ...string) {
 	var listed bool
 	var testPath, prevDir string
@@ -197,6 +269,7 @@ func (p *dirPane) doChangeDir(cdFwd bool, cdBack bool, tpath ...string) {
 	}
 
 	p.setPath(filepath.ToSlash(testPath))
+	p.addToHistory(testPath, p.mode)
 
 	p.sortDirList(p.pathList)
 
@@ -221,7 +294,7 @@ func (p *dirPane) ChangeDirEvent(cdFwd, cdBack bool) {
 }
 
 func resizeDirEntries(width int) {
-	if dirWidth == width && dirLayout == layoutToggle {
+	if dirWidth == width {
 		return
 	}
 
@@ -252,7 +325,6 @@ func resizeDirEntries(width int) {
 	}()
 
 	dirWidth = width
-	dirLayout = layoutToggle
 }
 
 func (p *dirPane) createDirList(cdFwd, cdBack bool, prevDir string) {
@@ -373,11 +445,7 @@ func getListEntry(dir *adb.DirEntry) []string {
 
 func setEntryColor(col int, sel bool, perms string) (tcell.Color, tcell.AttrMask) {
 	if col > 0 {
-		switch {
-		case !layoutToggle:
-			return tcell.ColorDefault, tcell.AttrNone
-
-		case sel:
+		if sel {
 			return tcell.ColorOrange, tcell.AttrBold
 		}
 

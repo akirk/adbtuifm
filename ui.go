@@ -13,20 +13,23 @@ import (
 )
 
 type dirPane struct {
-	row        int
-	path       string
-	apath      string
-	dpath      string
-	finput     string
-	filter     bool
-	hidden     bool
-	mode       ifaceMode
-	table      *tview.Table
-	plock      *semaphore.Weighted
-	entry      *adb.DirEntry
-	pathList   []*adb.DirEntry
-	title      *tview.TextView
-	sortMethod sortData
+	row         int
+	path        string
+	apath       string
+	dpath       string
+	finput      string
+	filter      bool
+	hidden      bool
+	mode        ifaceMode
+	table       *tview.Table
+	plock       *semaphore.Weighted
+	entry       *adb.DirEntry
+	pathList    []*adb.DirEntry
+	title       *tview.TextView
+	sortMethod  sortData
+	history     []string
+	historyPos  int
+	historyMode []ifaceMode
 }
 
 var (
@@ -37,17 +40,12 @@ var (
 	auxPane  *dirPane
 	prevPane *dirPane
 
-	paneToggle   bool
-	layoutToggle bool
-
 	panes          *tview.Flex
 	titleBar       *tview.Flex
 	mainFlex       *tview.Flex
 	wrapVertical   *tview.Flex
-	wrapHorizontal *tview.Flex
 
 	boxVertical       *tview.Box
-	boxHorizontal     *tview.Box
 	boxTitleSeparator *tview.Box
 	boxLogSeparator   *tview.Box
 
@@ -143,23 +141,6 @@ func setupPaneView() *tview.Flex {
 	setupPane(selPane, auxPane)
 	setupPane(auxPane, selPane)
 
-	boxHorizontal = tview.NewBox().
-		SetBackgroundColor(tcell.ColorDefault).
-		SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-			centerY := y + height/2
-			for cx := x; cx < x+width; cx++ {
-				screen.SetContent(
-					cx,
-					centerY,
-					tview.BoxDrawingsLightHorizontal,
-					nil,
-					tcell.StyleDefault.Foreground(tcell.ColorDefault),
-				)
-			}
-
-			return x + 1, centerY + 1, width - 2, height - (centerY + 1 - y)
-		})
-
 	boxVertical = tview.NewBox().
 		SetBackgroundColor(tcell.ColorDefault).
 		SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
@@ -220,14 +201,6 @@ func setupPaneView() *tview.Flex {
 	wrapVertical = tview.NewFlex().
 		AddItem(titleBar, 1, 0, false).
 		AddItem(wrapFlex, 0, 2, true).
-		SetDirection(tview.FlexRow)
-
-	wrapHorizontal = tview.NewFlex().
-		AddItem(selPane.title, 1, 0, false).
-		AddItem(selPane.table, 0, 1, true).
-		AddItem(boxHorizontal, 1, 0, false).
-		AddItem(auxPane.title, 1, 0, false).
-		AddItem(auxPane.table, 0, 1, false).
 		SetDirection(tview.FlexRow)
 
 	logViewFlex := setupLogView()
@@ -367,10 +340,10 @@ func setupPane(selPane, auxPane *dirPane) {
 			showFullscreenLog()
 
 		case '[':
-			swapLayout(selPane, auxPane)
+			go selPane.navigateHistory(false)
 
 		case ']':
-			swapPanes(selPane, auxPane)
+			go selPane.navigateHistory(true)
 
 		case '!':
 			execCommand()
@@ -480,80 +453,6 @@ func resetOpsView() {
 
 	case row-1 == count:
 		opsView.Select(row-opRowNum, 0)
-	}
-}
-
-func swapLayout(selPane, auxPane *dirPane) {
-	var logViewFlex *tview.Flex
-	for i := 0; i < mainFlex.GetItemCount(); i++ {
-		item := mainFlex.GetItem(i)
-		if item != wrapVertical && item != wrapHorizontal && item != statuspgs && item != boxLogSeparator {
-			logViewFlex = item.(*tview.Flex)
-			break
-		}
-	}
-
-	mainFlex.RemoveItem(boxLogSeparator)
-	mainFlex.RemoveItem(logViewFlex)
-	mainFlex.RemoveItem(statuspgs)
-
-	if !layoutToggle {
-		layoutToggle = true
-		mainFlex.RemoveItem(wrapVertical)
-		mainFlex.AddItem(wrapHorizontal, 0, 1, true)
-	} else {
-		layoutToggle = false
-		mainFlex.RemoveItem(wrapHorizontal)
-		mainFlex.AddItem(wrapVertical, 0, 1, true)
-	}
-
-	mainFlex.AddItem(boxLogSeparator, 1, 0, false)
-	mainFlex.AddItem(logViewFlex, 6, 0, false)
-	mainFlex.AddItem(statuspgs, 1, 0, false)
-
-	selPane.reselect(false)
-	auxPane.reselect(false)
-}
-
-func swapPanes(selPane, auxPane *dirPane) {
-	vertToggle := func(p *dirPane) {
-		panes.RemoveItem(p.table)
-		panes.RemoveItem(boxVertical)
-
-		panes.AddItem(boxVertical, 5, 0, false)
-		panes.AddItem(p.table, 0, 1, true)
-
-		titleBar.RemoveItem(p.title)
-		titleBar.RemoveItem(boxTitleSeparator)
-
-		titleBar.AddItem(boxTitleSeparator, 1, 0, true)
-		titleBar.AddItem(p.title, 0, 1, false)
-	}
-
-	horizToggle := func(p *dirPane) {
-		wrapHorizontal.RemoveItem(p.title)
-		wrapHorizontal.RemoveItem(p.table)
-		wrapHorizontal.RemoveItem(boxHorizontal)
-
-		wrapHorizontal.AddItem(boxHorizontal, 1, 0, false)
-		wrapHorizontal.AddItem(p.title, 1, 0, false)
-		wrapHorizontal.AddItem(p.table, 0, 1, true)
-	}
-
-	toggle := func(p *dirPane) {
-		if !layoutToggle {
-			vertToggle(p)
-		} else {
-			horizToggle(p)
-		}
-	}
-
-	if !paneToggle {
-		toggle(selPane)
-		paneToggle = true
-	} else {
-		toggle(auxPane)
-		paneToggle = false
 	}
 }
 
@@ -815,8 +714,8 @@ func showHelp() {
 		"Invert selection ":                     "a",
 		"Select all items ":                     "A",
 		"Edit selection list ":                  "S",
-		"Toggle layouts ":                       "[",
-		"Swap panes ":                           "]",
+		"Navigate back in history ":             "[",
+		"Navigate forward in history ":          "]",
 		"Reset selections ":                     "Esc",
 		"Temporarily exit to shell ":            "Ctrl+d",
 		"Quit ":                                 "q",

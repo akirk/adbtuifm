@@ -3,16 +3,14 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/akirk/adbtuifm)](https://goreportcard.com/report/github.com/akirk/adbtuifm)
 # adbtuifm
 
-This is a fork of [darkhz/adbtuifm](https://github.com/darkhz/adbtuifm) that makes this work better for me in macOS. Feel free to also use it.
+This is a fork of [darkhz/adbtuifm](https://github.com/darkhz/adbtuifm) (which looks abandoned with the last commit being three years ago in 2025) that makes this work better for me in macOS. Feel free to also use it.
 
 ![demo](demo/demo.gif)
 
 adbtuifm is a TUI-based file manager for the Android Debug Bridge, to make transfers
 between the device and client easier.
 
-It has been tested only on Linux. Windows/Mac is currently not supported.
-
-This is a work in progress.
+It has been tested only on Mac. Windows/Linux might be supported by [darkhz/adbtuifm](https://github.com/darkhz/adbtuifm).
 
 # Features
 - Multiselection support, with a selections editor
@@ -25,9 +23,15 @@ This is a work in progress.
 
 - View file operations separately on a different screen, with ability to monitor<br />progress and  cancel operation
 
+- ADB command log panel showing all ADB commands with timestamps and output
+
 - Execute commands on the device or local machine, with toggleable<br />foreground/background execution modes
 
 - Filter entries in each directory
+
+- Display file size and modification date for all entries
+
+- Directory navigation history with back/forward support
 
 - Rename files/folders or create directories
 
@@ -68,6 +72,7 @@ Flags:
 |Put/Paste (don't duplicate existing entry)|<kbd>P</kbd>                                            |
 |Delete                                    |<kbd>d</kbd>                                            |
 |Open files                                |<kbd>Ctrl</kbd>+<kbd>o</kbd>                            |
+|View fullscreen log                       |<kbd>l</kbd>                                            |
 |Filter entries                            |<kbd>/</kbd>                                            |
 |Toggle filtering modes (normal/regex)     |<kbd>Ctrl</kbd>+<kbd>f</kbd>                            |
 |Sort entries                              |<kbd>;</kbd>                                            |
@@ -77,8 +82,8 @@ Flags:
 |Select all items                          |<kbd>A</kbd>                                            |
 |Edit selection list                       |<kbd>S</kbd>                                            |
 |Make directory                            |<kbd>M</kbd>                                            |
-|Toggle top-down/right-left layout         |<kbd>[</kbd>                                            |
-|Swap panes                                |<kbd>]</kbd>                                            |
+|Navigate back in history                  |<kbd>[</kbd>                                            |
+|Navigate forward in history               |<kbd>]</kbd>                                            |
 |Rename files/folders                      |<kbd>R</kbd>                                            |
 |Reset selections                          |<kbd>Esc</kbd>                                          |
 |Suspend to shell                          |<kbd>Ctrl</kbd>+<kbd>z</kbd>                            |
@@ -120,8 +125,6 @@ Flags:
 
 # Notes
 - As of v0.5.5, keybindings have been revised and the UI has been revamped.<br />
-
-- More information about an entry will be shown only in the **top-down** layout.<br />
 
 - **Only Copy operations are cancellable**. Move and Delete operations will persist.<br />
 
