@@ -224,7 +224,7 @@ func altPath(src, dst string, iface ifaceMode) (string, error) {
 				return dst, err
 			}
 
-			_, existerr = device.Stat(dst)
+			_, existerr = adbStat(device, dst)
 
 		case mLocal:
 			_, existerr = os.Lstat(dst)

@@ -49,7 +49,7 @@ func main() {
 		adbPath = filepath.Join("/sdcard", adbPath)
 	}
 
-	_, err = device.Stat(adbPath)
+	_, err = adbStat(device, adbPath)
 	if err != nil {
 		fmt.Printf("adbtuifm: %s: Invalid remote path\n", adbPath)
 		return

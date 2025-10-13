@@ -519,6 +519,9 @@ func execCmd(cmdtext, emode, imode string) (*exec.Cmd, error) {
 		}
 
 		cmdtext = "adb shell " + cmdtext
+		if cmdtext != "adb shell " {
+			addLog(cmdtext[10:], "", false)
+		}
 	}
 
 	if cmdtext == "" {

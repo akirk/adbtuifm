@@ -19,7 +19,6 @@ import (
 func (o *operation) pullFile(src, dst string, entry *adb.DirEntry, device *adb.Device, recursive bool) error {
 	remote, err := device.OpenRead(src)
 	if err != nil {
-		addLog(fmt.Sprintf("pull %s %s", src, dst), "", true)
 		return err
 	}
 	defer remote.Close()
@@ -59,7 +58,7 @@ func (o *operation) pullRecursive(src, dst string, device *adb.Device) error {
 		return fmt.Errorf("%s not implemented via pull", o.opmode.String())
 	}
 
-	stat, err := device.Stat(src)
+	stat, err := adbStat(device, src)
 	if err != nil {
 		return err
 	}
@@ -77,7 +76,7 @@ func (o *operation) pullRecursive(src, dst string, device *adb.Device) error {
 		return err
 	}
 
-	list, err := device.ListDirEntries(src)
+	list, err := adbListDirEntries(device, src)
 
 	for list.Next() {
 		entry := list.Entry()
@@ -128,7 +127,6 @@ func (o *operation) pushFile(src, dst string, entry os.FileInfo, device *adb.Dev
 
 	remote, err := device.OpenWrite(dst, perms, mtime)
 	if err != nil {
-		addLog(fmt.Sprintf("push %s %s", src, dst), "", true)
 		return err
 	}
 	defer remote.Close()
@@ -184,9 +182,7 @@ func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
 	defer srcfd.Close()
 
 	cmd := fmt.Sprintf("mkdir '%s'", dst)
-	out, err := device.RunCommand(cmd)
-
-	addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+	out, err := runAdbShellCommand(device, cmd)
 
 	if err != nil {
 		return err
@@ -196,9 +192,7 @@ func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
 
 	mode := fmt.Sprintf("%04o", stat.Mode().Perm())
 	cmd = fmt.Sprintf("chmod %s '%s'", mode, dst)
-	out, err = device.RunCommand(cmd)
-
-	addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+	out, err = runAdbShellCommand(device, cmd)
 
 	if err != nil {
 		return err
@@ -338,9 +332,7 @@ func (o *operation) getTotalFiles(src string) error {
 		}
 
 		cmd := fmt.Sprintf("find '%s' -type f | wc -l", src)
-		out, err := device.RunCommand(cmd)
-
-		addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+		out, err := runAdbShellCommand(device, cmd)
 
 		if err != nil {
 			return err
@@ -352,9 +344,7 @@ func (o *operation) getTotalFiles(src string) error {
 		}
 
 		cmd = fmt.Sprintf("du -d0 -sh '%s'", src)
-		out, err = device.RunCommand(cmd)
-
-		addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+		out, err = runAdbShellCommand(device, cmd)
 
 		if err != nil {
 			return err

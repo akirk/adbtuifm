@@ -213,7 +213,7 @@ func setupPaneView() *tview.Flex {
 	mainFlex = tview.NewFlex().
 		AddItem(wrapVertical, 0, 1, true).
 		AddItem(boxLogSeparator, 1, 0, false).
-		AddItem(logViewFlex, 6, 0, false).
+		AddItem(logViewFlex, 10, 0, false).
 		AddItem(statuspgs, 1, 0, false).
 		SetDirection(tview.FlexRow)
 
@@ -551,7 +551,15 @@ func (p *dirPane) updateDirPane(row int, sel bool, dir *adb.DirEntry) {
 		perms = perms[1:]
 	}
 
+	// For ".." parent directory, only show the name column
+	isParentDir := dir.Name == ".."
+
 	for col, dname := range entry {
+		// Skip size and date columns for parent directory
+		if isParentDir && col > 0 {
+			continue
+		}
+
 		if col == 0 {
 			mode := dir.Mode&os.ModeDir != 0
 			if len(dname) > 0 && mode {

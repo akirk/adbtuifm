@@ -79,7 +79,7 @@ func updateLogView() {
 		}
 
 		for _, entry := range logEntries {
-			timestamp := entry.timestamp.Format("15:04:05")
+			timestamp := entry.timestamp.Format("15:04:05.000")
 			color := ""
 			if entry.isError {
 				color = "red"
@@ -115,7 +115,7 @@ func showFullscreenLog() {
 		fmt.Fprintf(fullscreenLogView, "No ADB commands yet.")
 	} else {
 		for _, entry := range logEntries {
-			timestamp := entry.timestamp.Format("15:04:05")
+			timestamp := entry.timestamp.Format("15:04:05.000")
 			color := ""
 			if entry.isError {
 				color = "red"

@@ -11,6 +11,8 @@ import (
 	adb "github.com/zach-klippenstein/goadb"
 )
 
+var lastDeviceState adb.DeviceState
+
 func checkAdb() bool {
 	_, err := getAdb()
 	if err != nil {
@@ -30,11 +32,38 @@ func getAdb() (*adb.Device, error) {
 	device := client.Device(adb.AnyDevice())
 
 	state, err := device.State()
+	if state != lastDeviceState {
+		addLog("devices", fmt.Sprintf("%v", state), err != nil || state != adb.StateOnline)
+		lastDeviceState = state
+	}
 	if err != nil || state != adb.StateOnline {
 		return nil, fmt.Errorf("ADB device not found")
 	}
 
 	return device, nil
+}
+
+func runAdbShellCommand(device *adb.Device, cmd string) (string, error) {
+	out, err := device.RunCommand(cmd)
+	addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+	return out, err
+}
+
+func runAdbShellCommandContext(ctx context.Context, cmd string) (string, error) {
+	out, err := exec.CommandContext(ctx, "adb", "shell", cmd).Output()
+	addLog(fmt.Sprintf("shell %s", cmd), string(out), err != nil)
+	return string(out), err
+}
+
+func adbStat(device *adb.Device, path string) (*adb.DirEntry, error) {
+	stat, err := device.Stat(path)
+	return stat, err
+}
+
+func adbListDirEntries(device *adb.Device, path string) (*adb.DirEntries, error) {
+	entries, err := device.ListDirEntries(path)
+	addLog(fmt.Sprintf("ls %s", path), "", err != nil)
+	return entries, err
 }
 
 func isAdbSymDir(testPath, name string) bool {
@@ -44,9 +73,7 @@ func isAdbSymDir(testPath, name string) bool {
 	}
 
 	cmd := fmt.Sprintf("ls -pd %s%s/", testPath, name)
-	out, err := device.RunCommand(cmd)
-
-	addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+	out, err := runAdbShellCommand(device, cmd)
 
 	if err != nil {
 		return false
@@ -95,14 +122,14 @@ func (o *operation) execAdbCmd(src, dst string, device *adb.Device) error {
 		param = srcfmt
 
 	default:
-		stat, err := device.Stat(src)
+		stat, err := adbStat(device, src)
 		if err != nil {
 			return err
 		}
 
 		switch o.opmode {
 		case opRename:
-			_, err := device.Stat(dst)
+			_, err := adbStat(device, dst)
 			if err == nil {
 				return fmt.Errorf("rename %s %s: file exists", src, dst)
 			}
@@ -131,9 +158,7 @@ func (o *operation) execAdbCmd(src, dst string, device *adb.Device) error {
 	}
 
 	cmd = cmd + param
-	out, err := exec.CommandContext(o.ctx, "adb", "shell", cmd).Output()
-
-	addLog(fmt.Sprintf("shell %s", cmd), string(out), err != nil)
+	out, err := runAdbShellCommandContext(o.ctx, cmd)
 
 	if err != nil {
 		if err.Error() == "signal: killed" {
@@ -143,8 +168,8 @@ func (o *operation) execAdbCmd(src, dst string, device *adb.Device) error {
 		return err
 	}
 
-	if string(out) != "" {
-		return fmt.Errorf(string(out))
+	if out != "" {
+		return fmt.Errorf(out)
 	}
 
 	return nil
@@ -159,13 +184,13 @@ func (p *dirPane) adbListDir(testPath string, autocomplete bool) ([]string, bool
 		return nil, false
 	}
 
-	_, err = device.Stat(testPath)
+	_, err = adbStat(device, testPath)
 	if err != nil {
 		showErrorMsg(err, autocomplete)
 		return nil, false
 	}
 
-	dent, err := device.ListDirEntries(testPath)
+	dent, err := adbListDirEntries(device, testPath)
 	if err != nil {
 		showErrorMsg(err, autocomplete)
 		return nil, false
