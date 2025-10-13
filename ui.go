@@ -271,6 +271,7 @@ func setupOpsView() *tview.Flex {
 
 	opsTitle.SetDynamicColors(true)
 	opsTitle.SetText("[::bu]Operations")
+	opsTitle.SetTextColor(tcell.ColorDefault)
 	opsTitle.SetBackgroundColor(tcell.ColorDefault)
 
 	opsView.SetBorderColor(tcell.ColorDefault)
@@ -367,6 +368,7 @@ func setupPane(selPane, auxPane *dirPane) {
 
 	selPane.title.SetDynamicColors(true)
 	selPane.title.SetTextAlign(tview.AlignCenter)
+	selPane.title.SetTextColor(tcell.ColorDefault)
 	selPane.title.SetBackgroundColor(tcell.ColorDefault)
 
 	selPane.table.SetSelectionChangedFunc(func(row, col int) {
@@ -382,8 +384,7 @@ func setupPane(selPane, auxPane *dirPane) {
 		}
 
 		cell.SetSelectedStyle(tcell.Style{}.
-			Foreground(cell.Color).
-			Attributes(cell.Attributes | tcell.AttrReverse))
+			Attributes(tcell.AttrReverse))
 	})
 
 	selPane.ChangeDir(false, false)
@@ -751,6 +752,11 @@ func showHelp() {
 	helpview := tview.NewTable()
 	helpview.SetBackgroundColor(tcell.ColorDefault)
 
+	helpview.SetSelectedStyle(tcell.Style{}.
+		Attributes(tcell.AttrReverse))
+
+	helpview.SetBorderColor(tcell.ColorDefault)
+
 	mainText := map[string]string{
 		"Switch between panes ":                 "Tab ",
 		"Navigate between entries ":             "Up, Down",
@@ -865,26 +871,32 @@ func showHelp() {
 		helpview.SetCell(row, 0, tview.NewTableCell("[::b]["+header+"[]").
 			SetExpansion(1).
 			SetSelectable(false).
+			SetTextColor(tcell.ColorDefault).
 			SetAlign(tview.AlignCenter))
 
 		helpview.SetCell(row, 1, tview.NewTableCell("").
 			SetExpansion(0).
+			SetTextColor(tcell.ColorDefault).
 			SetSelectable(false))
 		row++
 
 		helpview.SetCell(row, 0, tview.NewTableCell("[::bu]Operation").
 			SetExpansion(1).
 			SetSelectable(false).
+			SetTextColor(tcell.ColorDefault).
 			SetAlign(tview.AlignLeft))
 
 		helpview.SetCell(row, 1, tview.NewTableCell("[::bu]Key").
 			SetExpansion(0).
+			SetTextColor(tcell.ColorDefault).
 			SetSelectable(false))
 		row++
 
 		for k, v := range helpMap {
-			helpview.SetCell(row, 0, tview.NewTableCell(k))
-			helpview.SetCell(row, 1, tview.NewTableCell(v))
+			helpview.SetCell(row, 0, tview.NewTableCell(k).
+				SetTextColor(tcell.ColorDefault))
+			helpview.SetCell(row, 1, tview.NewTableCell(v).
+				SetTextColor(tcell.ColorDefault))
 
 			row++
 		}
@@ -895,10 +907,12 @@ func showHelp() {
 	helpview.SetCell(row, 0, tview.NewTableCell(exitText).
 		SetExpansion(1).
 		SetSelectable(false).
+		SetTextColor(tcell.ColorDefault).
 		SetAlign(tview.AlignCenter))
 
 	helpview.SetCell(row, 1, tview.NewTableCell("").
 		SetExpansion(0).
+		SetTextColor(tcell.ColorDefault).
 		SetSelectable(false))
 
 	helpview.SetEvaluateAllRows(true)

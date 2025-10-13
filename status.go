@@ -148,7 +148,7 @@ func showConfirmMsg(msg string, doFunc, resetFunc func()) {
 
 		info += " items"
 
-		msgchan <- message{"[white]" + info, false}
+		msgchan <- message{info, false}
 	}
 
 	confirm := func() {

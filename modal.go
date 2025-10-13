@@ -57,7 +57,7 @@ func changeDirSelect(pane *dirPane, input *tview.InputField) {
 				cell := tview.NewTableCell("[::b]" + tview.Escape(entry))
 
 				cell.SetReference(entry)
-				cdtable.SetCell(row, 0, cell.SetTextColor(tcell.ColorSteelBlue))
+				cdtable.SetCell(row, 0, cell.SetTextColor(tcell.ColorDefault))
 
 				row++
 			}
@@ -202,13 +202,12 @@ func changeDirSelect(pane *dirPane, input *tview.InputField) {
 		cdtable.SetSelectedStyle(tcell.Style{}.
 			Bold(true).
 			Underline(true).
-			Background(cell.Color).
-			Foreground(tcell.ColorLightGrey))
+			Reverse(true))
 	})
 
 	cdtable.Select(0, 0)
 	cdtable.SetSelectable(true, false)
-	cdtable.SetBackgroundColor(tcell.ColorLightGrey)
+	cdtable.SetBackgroundColor(tcell.ColorDefault)
 
 	pages.AddPage("cdmodal", statusmodal(flex, cdtable), true, false).ShowPage("main")
 
@@ -302,10 +301,10 @@ func editSelections(input, sinput *tview.InputField) *tview.InputField {
 			_, ok := delpaths[selpath]
 
 			if !ok && (one || inv) {
-				color = tcell.ColorSteelBlue
+				color = tcell.ColorGreen
 				delpaths[selpath] = empty
 			} else {
-				color = tcell.ColorOrangeRed
+				color = tcell.ColorRed
 				delete(delpaths, selpath)
 			}
 
@@ -330,9 +329,9 @@ func editSelections(input, sinput *tview.InputField) *tview.InputField {
 		_, ok := delpaths[name]
 
 		if !ok {
-			color = tcell.ColorOrangeRed
+			color = tcell.ColorRed
 		} else {
-			color = tcell.ColorSteelBlue
+			color = tcell.ColorGreen
 		}
 
 		cell := tview.NewTableCell("[::b]" + tview.Escape(name))
@@ -447,8 +446,7 @@ func editSelections(input, sinput *tview.InputField) *tview.InputField {
 		seltable.SetSelectedStyle(tcell.Style{}.
 			Bold(true).
 			Underline(true).
-			Background(cell.Color).
-			Foreground(tcell.ColorLightGrey))
+			Reverse(true))
 	})
 
 	selectLock.RLock()
@@ -456,7 +454,7 @@ func editSelections(input, sinput *tview.InputField) *tview.InputField {
 		cell := tview.NewTableCell("[::b]" + tview.Escape(spath))
 
 		cell.SetReference(spath)
-		seltable.SetCell(row, 0, cell.SetTextColor(tcell.ColorOrangeRed))
+		seltable.SetCell(row, 0, cell.SetTextColor(tcell.ColorRed))
 
 		row++
 	}
@@ -464,7 +462,7 @@ func editSelections(input, sinput *tview.InputField) *tview.InputField {
 
 	seltable.Select(0, 0)
 	seltable.SetSelectable(true, false)
-	seltable.SetBackgroundColor(tcell.ColorLightGrey)
+	seltable.SetBackgroundColor(tcell.ColorDefault)
 
 	pages.AddAndSwitchToPage("editmodal", statusmodal(flex, seltable), true).ShowPage("main")
 

@@ -29,10 +29,12 @@ func setupLogView() *tview.Flex {
 	logView.SetDynamicColors(true)
 	logView.SetScrollable(true)
 	logView.SetWrap(true)
+	logView.SetTextColor(tcell.ColorDefault)
 	logView.SetBackgroundColor(tcell.ColorDefault)
 
 	logTitle.SetDynamicColors(true)
 	logTitle.SetText("[::b]ADB Log")
+	logTitle.SetTextColor(tcell.ColorDefault)
 	logTitle.SetBackgroundColor(tcell.ColorDefault)
 
 	logFlex := tview.NewFlex().
@@ -77,18 +79,18 @@ func updateLogView() {
 		logView.Clear()
 
 		if len(logEntries) == 0 {
-			fmt.Fprintf(logView, "[gray::i]No ADB commands yet. Press 'c' to clear this log.")
+			fmt.Fprintf(logView, "No ADB commands yet. Press 'c' to clear this log.")
 			return
 		}
 
 		for _, entry := range logEntries {
 			timestamp := entry.timestamp.Format("15:04:05")
-			color := "white"
+			color := ""
 			if entry.isError {
 				color = "red"
 			}
 
-			fmt.Fprintf(logView, "[gray]%s[white] [%s::b]$ adb %s[-:-:-]\n",
+			fmt.Fprintf(logView, "%s [%s::b]$ adb %s[-:-:-]\n",
 				timestamp, color, tview.Escape(entry.command))
 
 			if entry.output != "" {
