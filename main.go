@@ -23,8 +23,9 @@ func main() {
 	cmdAPath := kingpin.Flag("remote", "Specify the remote path to start in").
 		Default("/sdcard").String()
 
+	cwd, _ := os.Getwd()
 	cmdLPath := kingpin.Flag("local", "Specify the local path to start in").
-		Default("/home").String()
+		Default(cwd).String()
 
 	kingpin.Parse()
 
