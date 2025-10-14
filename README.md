@@ -41,7 +41,7 @@ It has been tested only on Mac. Windows/Linux might be supported by [darkhz/adbt
 
 # Installation
 ```
-go get -u github.com/akirk/adbtuifm
+go install github.com/akirk/adbtuifm@latest
 ```
 # Usage
 ```
