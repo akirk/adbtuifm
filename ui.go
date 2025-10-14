@@ -383,13 +383,26 @@ func setupPane(selPane, auxPane *dirPane, loadDir bool) {
 			return
 		}
 
-		cell := selPane.table.GetCell(row, col)
-		if cell == nil || col > 0 {
-			return
+		for c := 0; c < 3; c++ {
+			cell := selPane.table.GetCell(row, c)
+			if cell == nil {
+				continue
+			}
+
+			cell.SetSelectedStyle(tcell.Style{}.
+				Attributes(tcell.AttrReverse))
 		}
 
-		cell.SetSelectedStyle(tcell.Style{}.
-			Attributes(tcell.AttrReverse))
+		cell := selPane.table.GetCell(row, 0)
+		if cell != nil {
+			ref := cell.GetReference()
+			if ref != nil {
+				dir := ref.(*adb.DirEntry)
+				if dir.Name != ".." {
+					msgchan <- message{tview.Escape(dir.Name), true}
+				}
+			}
+		}
 	})
 
 	if loadDir {
@@ -571,6 +584,7 @@ func (p *dirPane) updateDirPane(row int, sel bool, dir *adb.DirEntry) {
 
 		cell := tview.NewTableCell(tview.Escape(dname))
 		cell.SetReference(dir)
+		cell.SetBackgroundColor(tcell.ColorDefault)
 
 		if col > 0 {
 			// Column 1: size (right-aligned)
@@ -582,7 +596,11 @@ func (p *dirPane) updateDirPane(row int, sel bool, dir *adb.DirEntry) {
 		} else {
 			cell.SetSelectable(true)
 			_, _, w, _ := pages.GetRect()
-			cell.SetMaxWidth(w - 40)
+			maxWidth := (w / 2) - 30
+			if maxWidth < 30 {
+				maxWidth = 30
+			}
+			cell.SetMaxWidth(maxWidth)
 		}
 
 		p.table.SetCell(row, col, cell.SetTextColor(color).

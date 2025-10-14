@@ -310,13 +310,18 @@ func resizeDirEntries(width int) {
 			}
 
 			app.QueueUpdateDraw(func() {
+				maxWidth := (width / 2) - 30
+				if maxWidth < 30 {
+					maxWidth = 30
+				}
+
 				for i := 0; i < pane.table.GetRowCount(); i++ {
 					cell := pane.table.GetCell(i, 0)
 					if cell == nil {
 						continue
 					}
 
-					cell.SetMaxWidth(width - 40)
+					cell.SetMaxWidth(maxWidth)
 				}
 
 				pane.setPaneTitle()
@@ -462,16 +467,12 @@ func getListEntry(dir *adb.DirEntry) []string {
 }
 
 func setEntryColor(col int, sel bool, perms string) (tcell.Color, tcell.AttrMask) {
-	if col > 0 {
-		if sel {
-			return tcell.ColorOrange, tcell.AttrBold
-		}
-
-		return tcell.ColorDefault, tcell.AttrDim
-	}
-
 	if sel {
 		return tcell.ColorOrange, tcell.AttrBold
+	}
+
+	if col > 0 {
+		return tcell.ColorDefault, tcell.AttrDim
 	}
 
 	switch perms[0] {
