@@ -183,9 +183,9 @@ func (o *operation) opSetStatus(status opStatus, err error) {
 	if o.opmode != opRename && o.opmode != opMkdir {
 		if jobNum > 0 {
 			text := strconv.Itoa(jobNum/opRowNum) + " job(s) are running"
-			msgchan <- message{text, true}
+			sendMessage(message{text, true})
 		} else {
-			msgchan <- message{"", true}
+			sendMessage(message{"", true})
 		}
 	}
 }

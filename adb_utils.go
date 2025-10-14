@@ -44,25 +44,30 @@ func getAdb() (*adb.Device, error) {
 }
 
 func runAdbShellCommand(device *adb.Device, cmd string) (string, error) {
+	logIndex := startLog(fmt.Sprintf("shell %s", cmd))
 	out, err := device.RunCommand(cmd)
-	addLog(fmt.Sprintf("shell %s", cmd), out, err != nil)
+	updateLog(logIndex, out, err != nil)
 	return out, err
 }
 
 func runAdbShellCommandContext(ctx context.Context, cmd string) (string, error) {
+	logIndex := startLog(fmt.Sprintf("shell %s", cmd))
 	out, err := exec.CommandContext(ctx, "adb", "shell", cmd).Output()
-	addLog(fmt.Sprintf("shell %s", cmd), string(out), err != nil)
+	updateLog(logIndex, string(out), err != nil)
 	return string(out), err
 }
 
 func adbStat(device *adb.Device, path string) (*adb.DirEntry, error) {
+	// Note: stat calls are deliberately not logged to avoid clogging the log
+	// as they occur very frequently during normal navigation
 	stat, err := device.Stat(path)
 	return stat, err
 }
 
 func adbListDirEntries(device *adb.Device, path string) (*adb.DirEntries, error) {
+	logIndex := startLog(fmt.Sprintf("ls %s", path))
 	entries, err := device.ListDirEntries(path)
-	addLog(fmt.Sprintf("ls %s", path), "", err != nil)
+	updateLog(logIndex, "", err != nil)
 	return entries, err
 }
 

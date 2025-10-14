@@ -32,13 +32,21 @@ func (o *operation) pullFile(src, dst string, entry *adb.DirEntry, device *adb.D
 	cioIn := contextio.NewReader(o.ctx, remote)
 	prgIn := progressbar.NewReader(cioIn, o.progress.pbar)
 
+	var logIndex int
+	if !recursive {
+		logIndex = startLog(fmt.Sprintf("pull %s %s", src, dst))
+	}
+
 	_, err = io.Copy(local, &prgIn)
 	if err != nil {
+		if !recursive {
+			updateLog(logIndex, err.Error(), true)
+		}
 		return err
 	}
 
 	if !recursive {
-		addLog(fmt.Sprintf("pull %s %s", src, dst), "success", false)
+		updateLog(logIndex, "success", false)
 	}
 
 	o.updatePb()
@@ -64,8 +72,9 @@ func (o *operation) pullRecursive(src, dst string, device *adb.Device) error {
 	}
 
 	isDir := stat.Mode.IsDir()
+	var logIndex int
 	if isDir {
-		addLog(fmt.Sprintf("pull -r %s %s", src, dst), "pulling directory...", false)
+		logIndex = startLog(fmt.Sprintf("pull -r %s %s", src, dst))
 	}
 
 	if !isDir {
@@ -96,7 +105,14 @@ func (o *operation) pullRecursive(src, dst string, device *adb.Device) error {
 		}
 	}
 	if list.Err() != nil {
+		if isDir && logIndex >= 0 {
+			updateLog(logIndex, err.Error(), true)
+		}
 		return err
+	}
+
+	if isDir && logIndex >= 0 {
+		updateLog(logIndex, "success", false)
 	}
 
 	return nil
@@ -131,16 +147,24 @@ func (o *operation) pushFile(src, dst string, entry os.FileInfo, device *adb.Dev
 	}
 	defer remote.Close()
 
+	var logIndex int
+	if !recursive {
+		logIndex = startLog(fmt.Sprintf("push %s %s", src, dst))
+	}
+
 	cioIn := contextio.NewReader(o.ctx, local)
 	prgIn := progressbar.NewReader(cioIn, o.progress.pbar)
 
 	_, err = io.Copy(remote, &prgIn)
 	if err != nil {
+		if !recursive {
+			updateLog(logIndex, err.Error(), true)
+		}
 		return err
 	}
 
 	if !recursive {
-		addLog(fmt.Sprintf("push %s %s", src, dst), "success", false)
+		updateLog(logIndex, "success", false)
 	}
 
 	o.updatePb()
@@ -167,8 +191,9 @@ func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
 	}
 
 	isDir := stat.Mode().IsDir()
+	var logIndex int
 	if isDir {
-		addLog(fmt.Sprintf("push -r %s %s", src, dst), "pushing directory...", false)
+		logIndex = startLog(fmt.Sprintf("push -r %s %s", src, dst))
 	}
 
 	if !isDir {
@@ -217,8 +242,15 @@ func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
 		}
 
 		if err = o.pushFile(s, d, entry, device, true); err != nil {
+			if isDir && logIndex >= 0 {
+				updateLog(logIndex, err.Error(), true)
+			}
 			return err
 		}
+	}
+
+	if isDir && logIndex >= 0 {
+		updateLog(logIndex, "success", false)
 	}
 
 	return nil

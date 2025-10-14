@@ -79,6 +79,19 @@ func stopStatus() {
 	close(msgchan)
 }
 
+func sendMessage(msg message) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Channel is closed, ignore
+		}
+	}()
+
+	select {
+	case msgchan <- msg:
+	case <-sctx.Done():
+	}
+}
+
 func setupStatus() {
 	statuspgs = tview.NewPages()
 
@@ -112,7 +125,7 @@ func getStatusInput(msg string, accept bool) *tview.InputField {
 }
 
 func showInfoMsg(msg string) {
-	msgchan <- message{"[::b]" + tview.Escape(msg), false}
+	sendMessage(message{"[::b]" + tview.Escape(msg), false})
 }
 
 func showErrorMsg(err error, autocomplete bool) {
@@ -120,7 +133,7 @@ func showErrorMsg(err error, autocomplete bool) {
 		return
 	}
 
-	msgchan <- message{"[red::b]" + tview.Escape(err.Error()), false}
+	sendMessage(message{"[red::b]" + tview.Escape(err.Error()), false})
 }
 
 func showConfirmMsg(msg string, defaultChoice string, doFunc, resetFunc func()) {
@@ -146,7 +159,7 @@ func showConfirmMsg(msg string, defaultChoice string, doFunc, resetFunc func()) 
 
 		info += " items"
 
-		msgchan <- message{info, false}
+		sendMessage(message{info, false})
 	}
 
 	confirm := func() {
@@ -169,7 +182,10 @@ func showConfirmMsg(msg string, defaultChoice string, doFunc, resetFunc func()) 
 			fallthrough
 
 		case "n":
-			exit(reset)
+			// Must be async so input handler can return before UI operations
+			go func() {
+				exit(reset)
+			}()
 
 		default:
 			return
@@ -190,17 +206,25 @@ func showConfirmMsg(msg string, defaultChoice string, doFunc, resetFunc func()) 
 		}
 	})
 
-	input.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
+	input.SetDoneFunc(func(key tcell.Key) {
+		switch key {
 		case tcell.KeyEnter:
 			confirm()
+		case tcell.KeyEscape:
+			exit(false)
+		}
+	})
 
+	input.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
 		case tcell.KeyEscape, tcell.KeyLeft, tcell.KeyRight:
 			exit(false)
+			return nil
 
 		case tcell.KeyUp, tcell.KeyDown:
 			exit(false)
 			prevPane.table.InputHandler()(event, nil)
+			return nil
 		}
 
 		return event
@@ -356,7 +380,7 @@ func showMkdirRenameInput(selPane, auxPane *dirPane, key rune) {
 			info = "Renamed '" + origname + "' to '" + newname + "'"
 		}
 
-		msgchan <- message{info, false}
+		sendMessage(message{info, false})
 	}
 
 	input := getStatusInput(title, false)

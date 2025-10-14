@@ -27,7 +27,6 @@ func opsHandler(selPane, auxPane *dirPane, key rune) {
 	if !selPane.getLock() {
 		return
 	}
-	defer selPane.setUnlock()
 
 	var opstmp opsMode
 	var overwrite bool
@@ -36,6 +35,7 @@ func opsHandler(selPane, auxPane *dirPane, key rune) {
 	switch key {
 	case 'p', 'P', 'm', 'd':
 		if len(multiselection) == 0 {
+			selPane.setUnlock()
 			showInfoMsg("No items selected. Use Space to select items first.")
 			return
 		}
@@ -78,7 +78,12 @@ func opsHandler(selPane, auxPane *dirPane, key rune) {
 		srctmp = []selection{{srcpath, selPane.mode}}
 	}
 
-	confirmOperation(auxPane, selPane, opstmp, overwrite, srctmp)
+	selPane.setUnlock()
+
+	// Must be async so opsHandler returns and UI thread is free to handle input
+	go func() {
+		confirmOperation(auxPane, selPane, opstmp, overwrite, srctmp)
+	}()
 }
 
 func (p *dirPane) modeSwitchHandler() {

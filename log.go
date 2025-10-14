@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -21,9 +22,16 @@ var (
 	logView    *tview.TextView
 	logEntries []logEntry
 	logMutex   sync.Mutex
+	logFile    *os.File
 )
 
 func setupLogView() *tview.Flex {
+	var err error
+	logFile, err = os.OpenFile("/tmp/adbtuifm-debug.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		panic(err)
+	}
+
 	logView = newTextView()
 	logTitle := newTextView()
 
@@ -41,19 +49,62 @@ func setupLogView() *tview.Flex {
 }
 
 func addLog(command string, output string, isError bool) {
+	timestamp := time.Now().Format("15:04:05.000")
+
+	// Write to file immediately (synchronously for debugging)
+	if logFile != nil {
+		fmt.Fprintf(logFile, "%s $ adb %s", timestamp, command)
+		if output != "" {
+			fmt.Fprintf(logFile, " - %s", output)
+		}
+		fmt.Fprintf(logFile, "\n")
+		logFile.Sync()
+	}
+
+	go func() {
+		logMutex.Lock()
+		defer logMutex.Unlock()
+
+		entry := logEntry{
+			timestamp: time.Now(),
+			command:   command,
+			output:    output,
+			isError:   isError,
+		}
+
+		logEntries = append(logEntries, entry)
+
+		updateLogView()
+	}()
+}
+
+func startLog(command string) int {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 
 	entry := logEntry{
 		timestamp: time.Now(),
 		command:   command,
-		output:    output,
-		isError:   isError,
+		output:    "[running...]",
+		isError:   false,
 	}
 
 	logEntries = append(logEntries, entry)
+	index := len(logEntries) - 1
 
 	updateLogView()
+	return index
+}
+
+func updateLog(index int, output string, isError bool) {
+	logMutex.Lock()
+	defer logMutex.Unlock()
+
+	if index >= 0 && index < len(logEntries) {
+		logEntries[index].output = output
+		logEntries[index].isError = isError
+		updateLogView()
+	}
 }
 
 func clearLog() {

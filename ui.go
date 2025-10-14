@@ -398,8 +398,10 @@ func setupPane(selPane, auxPane *dirPane, loadDir bool) {
 			ref := cell.GetReference()
 			if ref != nil {
 				dir := ref.(*adb.DirEntry)
-				if dir.Name != ".." {
-					msgchan <- message{tview.Escape(dir.Name), true}
+				if dir.Name != ".." && len(dir.Name) > 50 {
+					sendMessage(message{"[::b]Highlighted: " + tview.Escape(dir.Name), true})
+				} else {
+					sendMessage(message{"", true})
 				}
 			}
 		}
