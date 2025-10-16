@@ -202,6 +202,9 @@ func (p *dirPane) navigateHistory(forward bool) {
 				}
 				return
 			}
+			p.dpath = p.path
+		case mLocal:
+			p.apath = p.path
 		}
 		p.mode = testMode
 	}
@@ -224,6 +227,7 @@ func (p *dirPane) navigateHistory(forward bool) {
 
 	p.setPath(filepath.ToSlash(testPath))
 	p.sortDirList(p.pathList)
+	p.row = 0
 	p.createDirList(false, false, "")
 }
 
