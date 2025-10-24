@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -236,6 +237,7 @@ func showConfirmMsg(msg string, defaultChoice string, doFunc, resetFunc func()) 
 
 func (p *dirPane) showFilterInput() {
 	var regex bool
+	var skipCallback bool
 
 	input := getStatusInput("", false)
 
@@ -258,63 +260,80 @@ func (p *dirPane) showFilterInput() {
 		app.SetFocus(prevPane.table)
 	}
 
-	filter := func(row int, dir *adb.DirEntry) {
-		sel := checkSelected(p.path, dir.Name, false)
-		p.updateDirPane(row, sel, dir)
-	}
-
 	input.SetChangedFunc(func(text string) {
-		if text == "" {
-			p.reselect(true)
-			p.table.Select(0, 0)
-			p.table.ScrollToBeginning()
-
+		if skipCallback {
 			return
 		}
+		go func() {
+			if !p.getLock() {
+				return
+			}
+			defer p.setUnlock()
 
-		if !p.getLock() {
-			return
-		}
-		defer p.setUnlock()
+			type filteredEntry struct {
+				row int
+				dir *adb.DirEntry
+				sel bool
+			}
+			var filtered []filteredEntry
 
-		p.filter = true
-
-		p.table.Clear()
-
-		var row int
-		for _, dir := range p.pathList {
-			if regex {
-				re, err := regexp.Compile(text)
-				if err != nil {
-					return
-				}
-
-				match := re.Match([]byte(dir.Name))
-				if match {
-					filter(row, dir)
+			if text == "" {
+				// No filter - show all files
+				p.filter = false
+				var row int
+				if p.path != "/" && p.path != "" {
+					parentDir := &adb.DirEntry{
+						Name: "..",
+						Mode: os.ModeDir | 0755,
+					}
+					filtered = append(filtered, filteredEntry{row, parentDir, false})
 					row++
 				}
+				for _, dir := range p.pathList {
+					sel := checkSelected(p.path, dir.Name, false)
+					filtered = append(filtered, filteredEntry{row, dir, sel})
+					row++
+				}
+			} else {
+				// Filter mode
+				p.filter = true
+				for _, dir := range p.pathList {
+					match := false
+					if regex {
+						re, err := regexp.Compile(text)
+						if err != nil {
+							return
+						}
+						match = re.Match([]byte(dir.Name))
+					} else {
+						match = strings.Contains(
+							strings.ToLower(dir.Name),
+							strings.ToLower(text),
+						)
+					}
 
-				continue
+					if match {
+						sel := checkSelected(p.path, dir.Name, false)
+						filtered = append(filtered, filteredEntry{len(filtered), dir, sel})
+					}
+				}
 			}
 
-			if strings.Contains(
-				strings.ToLower(dir.Name),
-				strings.ToLower(text),
-			) {
-				filter(row, dir)
-				row++
-			}
-		}
-
-		p.table.Select(0, 0)
-		p.table.ScrollToBeginning()
+			app.QueueUpdateDraw(func() {
+				p.table.Clear()
+				for _, entry := range filtered {
+					p.updateDirPane(entry.row, entry.sel, entry.dir)
+				}
+				p.table.Select(0, 0)
+				p.table.ScrollToBeginning()
+			})
+		}()
 	})
 
 	input.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyCtrlR:
-			p.reselect(true)
+			go p.reselect(true)
 
 		case tcell.KeyCtrlF:
 			regex = !regex
@@ -322,21 +341,27 @@ func (p *dirPane) showFilterInput() {
 
 		case tcell.KeyUp, tcell.KeyDown:
 			p.table.InputHandler()(event, nil)
-			fallthrough
+			// Must be async so input handler can return before UI operations
+			go exit()
+			return nil
 
 		case tcell.KeyEnter, tcell.KeyEscape:
-			exit()
+			// Must be async so input handler can return before UI operations
+			go exit()
+			return nil
 		}
 
 		return event
 	})
 
-	input.SetText(p.finput)
-
 	inputlabel()
 
 	statuspgs.AddAndSwitchToPage("filter", input, true)
 	app.SetFocus(input)
+
+	skipCallback = true
+	input.SetText(p.finput)
+	skipCallback = false
 }
 
 func showMkdirRenameInput(selPane, auxPane *dirPane, key rune) {

@@ -324,9 +324,11 @@ func setupPane(selPane, auxPane *dirPane, loadDir bool) {
 
 		case '/':
 			selPane.showFilterInput()
+			return nil
 
 		case ';':
 			selPane.showSortDirInput()
+			return nil
 
 		case 's', '<':
 			selPane.modeSwitchHandler()
