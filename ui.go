@@ -91,6 +91,7 @@ func setupUI() {
 
 	pages.AddPage("main", setupPaneView(), true, true)
 	pages.AddPage("ops", setupOpsView(), true, true)
+	setupProgressDialog()
 
 	pages.SwitchToPage("main")
 

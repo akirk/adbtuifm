@@ -94,10 +94,14 @@ func isAdbSymDir(testPath, name string) bool {
 func (o *operation) adbOps(src, dst string) error {
 	var err error
 
+	addLog("adbOps", fmt.Sprintf("transfer=%v src=%s dst=%s", o.transfer, src, dst), false)
+
 	device, err := getAdb()
 	if err != nil {
+		addLog("adbOps", fmt.Sprintf("getAdb error: %v", err), true)
 		return err
 	}
+	addLog("adbOps", "got device, starting transfer", false)
 
 	switch o.transfer {
 	case adbToAdb:
@@ -110,6 +114,7 @@ func (o *operation) adbOps(src, dst string) error {
 		err = o.pullRecursive(src, dst, device)
 	}
 
+	addLog("adbOps", fmt.Sprintf("transfer done, err=%v", err), err != nil)
 	return err
 }
 

@@ -6,15 +6,50 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/dolmen-go/contextio"
 	"github.com/schollz/progressbar/v3"
 	adb "github.com/zach-klippenstein/goadb"
 )
+
+func (o *operation) sortEntries(list []*adb.DirEntry) {
+	sort.Slice(list, func(i, j int) bool {
+		var a, b int
+
+		if list[i].Mode.IsDir() != list[j].Mode.IsDir() {
+			return list[i].Mode.IsDir()
+		}
+
+		switch o.arrangeBy {
+		case "asc":
+			a, b = i, j
+
+		case "desc":
+			a, b = j, i
+		}
+
+		switch o.sortBy {
+		case "filetype":
+			if list[a].Mode.IsDir() || list[b].Mode.IsDir() {
+				break
+			}
+
+			return filepath.Ext(list[a].Name) < filepath.Ext(list[b].Name)
+
+		case "date":
+			return list[a].ModifiedAt.Unix() < list[b].ModifiedAt.Unix()
+		}
+
+		return list[a].Name < list[b].Name
+	})
+}
 
 func (o *operation) pullFile(src, dst string, entry *adb.DirEntry, device *adb.Device, recursive bool) error {
 	remote, err := device.OpenRead(src)
@@ -85,11 +120,23 @@ func (o *operation) pullRecursive(src, dst string, device *adb.Device) error {
 		return err
 	}
 
-	list, err := adbListDirEntries(device, src)
+	listIter, err := adbListDirEntries(device, src)
+	var entries []*adb.DirEntry
 
-	for list.Next() {
-		entry := list.Entry()
+	for listIter.Next() {
+		entry := listIter.Entry()
+		entries = append(entries, entry)
+	}
+	if listIter.Err() != nil {
+		if isDir && logIndex >= 0 {
+			updateLog(logIndex, listIter.Err().Error(), true)
+		}
+		return listIter.Err()
+	}
 
+	o.sortEntries(entries)
+
+	for _, entry := range entries {
 		s := filepath.Join(src, entry.Name)
 		d := filepath.Join(dst, entry.Name)
 
@@ -104,12 +151,6 @@ func (o *operation) pullRecursive(src, dst string, device *adb.Device) error {
 			return err
 		}
 	}
-	if list.Err() != nil {
-		if isDir && logIndex >= 0 {
-			updateLog(logIndex, err.Error(), true)
-		}
-		return err
-	}
 
 	if isDir && logIndex >= 0 {
 		updateLog(logIndex, "success", false)
@@ -120,6 +161,8 @@ func (o *operation) pullRecursive(src, dst string, device *adb.Device) error {
 
 func (o *operation) pushFile(src, dst string, entry os.FileInfo, device *adb.Device, recursive bool) error {
 	var err error
+
+	addLog("pushFile", fmt.Sprintf("src=%s dst=%s size=%d", src, dst, entry.Size()), false)
 
 	switch {
 	case entry.Mode()&os.ModeSymlink != 0:
@@ -132,40 +175,75 @@ func (o *operation) pushFile(src, dst string, entry os.FileInfo, device *adb.Dev
 		return nil
 	}
 
-	mtime := entry.ModTime()
-	perms := entry.Mode().Perm()
+	logIndex := startLog(fmt.Sprintf("push %s %s (%.1f MB)", src, dst, float64(entry.Size())/(1024*1024)))
 
-	local, err := os.Open(src)
+	// Use script command to capture adb push with PTY for live progress
+	// script -q /dev/null runs command with a PTY but discards the typescript file
+	cmd := exec.CommandContext(o.ctx, "script", "-q", "/dev/null", "adb", "push", src, dst)
+
+	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	defer local.Close()
 
-	remote, err := device.OpenWrite(dst, perms, mtime)
-	if err != nil {
+	if err := cmd.Start(); err != nil {
+		addLog("pushFile", fmt.Sprintf("adb push start error: %v", err), true)
 		return err
 	}
-	defer remote.Close()
 
-	var logIndex int
-	if !recursive {
-		logIndex = startLog(fmt.Sprintf("push %s %s", src, dst))
-	}
-
-	cioIn := contextio.NewReader(o.ctx, local)
-	prgIn := progressbar.NewReader(cioIn, o.progress.pbar)
-
-	_, err = io.Copy(remote, &prgIn)
-	if err != nil {
-		if !recursive {
-			updateLog(logIndex, err.Error(), true)
+	// Read output and capture progress (update UI less frequently)
+	var lastProgress string
+	go func() {
+		buf := make([]byte, 512)
+		for {
+			n, readErr := stdoutPipe.Read(buf)
+			if n > 0 {
+				// Parse the output - look for percentage
+				output := string(buf[:n])
+				// Split by \r to get latest progress line
+				parts := strings.Split(output, "\r")
+				for _, part := range parts {
+					part = strings.TrimSpace(part)
+					if part != "" && strings.Contains(part, "%") {
+						lastProgress = part
+					}
+				}
+			}
+			if readErr != nil {
+				break
+			}
 		}
+	}()
+
+	// Update progress in UI periodically
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if lastProgress != "" {
+					updateLog(logIndex, lastProgress, false)
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+
+	err = cmd.Wait()
+	close(done) // Stop the progress updater
+
+	if err != nil {
+		errMsg := fmt.Sprintf("error: %v", err)
+		addLog("pushFile", fmt.Sprintf("adb push error: %v", err), true)
+		updateLog(logIndex, errMsg, true)
 		return err
 	}
 
-	if !recursive {
-		updateLog(logIndex, "success", false)
-	}
+	addLog("pushFile", "adb push done", false)
+	updateLog(logIndex, "success", false)
 
 	o.updatePb()
 
@@ -174,6 +252,8 @@ func (o *operation) pushFile(src, dst string, entry os.FileInfo, device *adb.Dev
 
 //gocyclo:ignore
 func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
+	addLog("pushRecursive", fmt.Sprintf("src=%s dst=%s", src, dst), false)
+
 	select {
 	case <-o.ctx.Done():
 		return o.ctx.Err()
@@ -187,16 +267,20 @@ func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
 
 	stat, err := os.Lstat(src)
 	if err != nil {
+		addLog("pushRecursive", fmt.Sprintf("Lstat error: %v", err), true)
 		return err
 	}
 
 	isDir := stat.Mode().IsDir()
+	addLog("pushRecursive", fmt.Sprintf("isDir=%v size=%d", isDir, stat.Size()), false)
+
 	var logIndex int
 	if isDir {
 		logIndex = startLog(fmt.Sprintf("push -r %s %s", src, dst))
 	}
 
 	if !isDir {
+		addLog("pushRecursive", "calling pushFile for single file", false)
 		return o.pushFile(src, dst, stat, device, false)
 	}
 
@@ -225,23 +309,36 @@ func (o *operation) pushRecursive(src, dst string, device *adb.Device) error {
 		return fmt.Errorf(out)
 	}
 
-	list, err := ioutil.ReadDir(src)
+	oslist, err := ioutil.ReadDir(src)
 	if err != nil {
 		return err
 	}
 
-	for _, entry := range list {
-		s := filepath.Join(src, entry.Name())
-		d := filepath.Join(dst, entry.Name())
+	var entries []*adb.DirEntry
+	for _, entry := range oslist {
+		var d adb.DirEntry
+		d.Name = entry.Name()
+		d.Mode = entry.Mode()
+		d.Size = int32(entry.Size())
+		d.ModifiedAt = entry.ModTime()
+		entries = append(entries, &d)
+	}
 
-		if entry.IsDir() {
+	o.sortEntries(entries)
+
+	for _, entry := range entries {
+		s := filepath.Join(src, entry.Name)
+		d := filepath.Join(dst, entry.Name)
+
+		if entry.Mode.IsDir() {
 			if err = o.pushRecursive(s, d, device); err != nil {
 				return err
 			}
 			continue
 		}
 
-		if err = o.pushFile(s, d, entry, device, true); err != nil {
+		osEntry, _ := os.Lstat(s)
+		if err = o.pushFile(s, d, osEntry, device, true); err != nil {
 			if isDir && logIndex >= 0 {
 				updateLog(logIndex, err.Error(), true)
 			}
@@ -303,8 +400,6 @@ func (o *operation) copyRecursive(src, dst string) error {
 	default:
 	}
 
-	var list []os.FileInfo
-
 	stat, err := os.Lstat(src)
 	if err != nil {
 		return err
@@ -324,23 +419,36 @@ func (o *operation) copyRecursive(src, dst string) error {
 		return err
 	}
 
-	list, err = ioutil.ReadDir(src)
+	oslist, err := ioutil.ReadDir(src)
 	if err != nil {
 		return err
 	}
 
-	for _, entry := range list {
-		s := filepath.Join(src, entry.Name())
-		d := filepath.Join(dst, entry.Name())
+	var entries []*adb.DirEntry
+	for _, entry := range oslist {
+		var d adb.DirEntry
+		d.Name = entry.Name()
+		d.Mode = entry.Mode()
+		d.Size = int32(entry.Size())
+		d.ModifiedAt = entry.ModTime()
+		entries = append(entries, &d)
+	}
 
-		if entry.IsDir() {
+	o.sortEntries(entries)
+
+	for _, entry := range entries {
+		s := filepath.Join(src, entry.Name)
+		d := filepath.Join(dst, entry.Name)
+
+		if entry.Mode.IsDir() {
 			if err = o.copyRecursive(s, d); err != nil {
 				return err
 			}
 			continue
 		}
 
-		if err = o.copyFile(s, d, entry, true); err != nil {
+		osEntry, _ := os.Lstat(s)
+		if err = o.copyFile(s, d, osEntry, true); err != nil {
 			return err
 		}
 	}

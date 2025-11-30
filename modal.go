@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -526,4 +527,128 @@ func statusmodal(v, t tview.Primitive) tview.Primitive {
 	popupStatus(true)
 
 	return stflex
+}
+
+type progressDialog struct {
+	visible   bool
+	table     *tview.Table
+	modal     *tview.Flex
+	operation *operation
+}
+
+var progDialog progressDialog
+
+func setupProgressDialog() {
+	progDialog.table = tview.NewTable()
+	progDialog.table.SetSelectable(false, false)
+	progDialog.table.SetBackgroundColor(tcell.ColorDefault)
+	progDialog.table.SetBorder(true)
+	progDialog.table.SetBorderColor(tcell.ColorDefault)
+	progDialog.table.SetTitle(" Operation Progress ")
+
+	modalHeight := 6
+	modalWidth := 80
+
+	stmodal := tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(progDialog.table, modalHeight, 0, false).
+		AddItem(nil, 0, 1, false).
+		SetDirection(tview.FlexRow)
+
+	progDialog.modal = tview.NewFlex().
+		AddItem(nil, 0, 1, false).
+		AddItem(stmodal, modalWidth, 0, false).
+		AddItem(nil, 0, 1, false)
+
+	progDialog.table.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		return event
+	})
+
+	pages.AddPage("progressmodal", progDialog.modal, true, false)
+}
+
+func showProgressDialog(o *operation) {
+	if progDialog.visible {
+		return
+	}
+
+	app.QueueUpdateDraw(func() {
+		progDialog.operation = o
+		progDialog.visible = true
+		pages.ShowPage("progressmodal")
+	})
+}
+
+func hideProgressDialog() {
+	if !progDialog.visible {
+		return
+	}
+
+	app.QueueUpdateDraw(func() {
+		progDialog.visible = false
+		progDialog.operation = nil
+		pages.HidePage("progressmodal")
+	})
+}
+
+func updateProgressDialog() {
+	if !progDialog.visible {
+		return
+	}
+
+	// Don't update if operation is nil or progress not initialized
+	if progDialog.operation == nil {
+		return
+	}
+
+	o := progDialog.operation
+	if o.progress.text == nil || o.progress.prog == nil {
+		return
+	}
+
+	app.QueueUpdateDraw(func() {
+		// Double-check operation is still valid
+		if progDialog.operation == nil || !progDialog.visible {
+			return
+		}
+
+		progDialog.table.Clear()
+
+		row := 0
+
+		// Show operation description
+		text := o.progress.text.Text
+		if text == "" {
+			text = "Operation in progress..."
+		}
+		progDialog.table.SetCell(row, 0,
+			tview.NewTableCell(text).
+				SetExpansion(1).
+				SetAlign(tview.AlignLeft).
+				SetTextColor(tcell.ColorDefault).
+				SetSelectable(false))
+		row++
+
+		// Show progress bar
+		prog := o.progress.prog.Text
+		if prog == "" {
+			prog = fmt.Sprintf("Files: %d/%d", o.currFile, o.totalFile)
+		}
+		progDialog.table.SetCell(row, 0,
+			tview.NewTableCell(prog).
+				SetExpansion(1).
+				SetAlign(tview.AlignLeft).
+				SetTextColor(tcell.ColorDefault).
+				SetSelectable(false))
+		row++
+
+		progDialog.table.SetCell(row, 0, tview.NewTableCell("").SetSelectable(false))
+		row++
+
+		hint := tview.NewTableCell("[::d]Press [::b]o[::d] for full operations view").
+			SetAlign(tview.AlignCenter).
+			SetTextColor(tcell.ColorDefault).
+			SetSelectable(false)
+		progDialog.table.SetCell(row, 0, hint)
+	})
 }

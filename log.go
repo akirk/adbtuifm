@@ -32,11 +32,30 @@ func setupLogView() *tview.Flex {
 		panic(err)
 	}
 
+	// Write startup message directly to file
+	fmt.Fprintf(logFile, "%s $ adb [LOG SYSTEM STARTED]\n", time.Now().Format("15:04:05.000"))
+	logFile.Sync()
+
+	// Add startup entry to in-memory log too
+	logEntries = append(logEntries, logEntry{
+		timestamp: time.Now(),
+		command:   "startup",
+		output:    "Log system initialized",
+		isError:   false,
+	})
+
 	logView = newTextView()
 	logTitle := newTextView()
 
 	logView.SetScrollable(true)
 	logView.SetWrap(true)
+
+	// Render initial log content directly
+	for _, entry := range logEntries {
+		timestamp := entry.timestamp.Format("15:04:05.000")
+		fmt.Fprintf(logView, "%s [::b]$ adb %s[-:-:-] - %s\n",
+			timestamp, tview.Escape(entry.command), tview.Escape(entry.output))
+	}
 
 	logTitle.SetText("[::b]ADB Log")
 
@@ -61,29 +80,33 @@ func addLog(command string, output string, isError bool) {
 		logFile.Sync()
 	}
 
-	go func() {
-		logMutex.Lock()
-		defer logMutex.Unlock()
+	logMutex.Lock()
+	entry := logEntry{
+		timestamp: time.Now(),
+		command:   command,
+		output:    output,
+		isError:   isError,
+	}
+	logEntries = append(logEntries, entry)
+	entriesCopy := make([]logEntry, len(logEntries))
+	copy(entriesCopy, logEntries)
+	logMutex.Unlock()
 
-		entry := logEntry{
-			timestamp: time.Now(),
-			command:   command,
-			output:    output,
-			isError:   isError,
-		}
-
-		logEntries = append(logEntries, entry)
-
-		updateLogView()
-	}()
+	renderLogEntries(entriesCopy)
 }
 
 func startLog(command string) int {
 	logMutex.Lock()
-	defer logMutex.Unlock()
+
+	timestamp := time.Now()
+
+	if logFile != nil {
+		fmt.Fprintf(logFile, "%s $ adb %s [starting...]\n", timestamp.Format("15:04:05.000"), command)
+		logFile.Sync()
+	}
 
 	entry := logEntry{
-		timestamp: time.Now(),
+		timestamp: timestamp,
 		command:   command,
 		output:    "[running...]",
 		isError:   false,
@@ -92,31 +115,49 @@ func startLog(command string) int {
 	logEntries = append(logEntries, entry)
 	index := len(logEntries) - 1
 
-	updateLogView()
+	entriesCopy := make([]logEntry, len(logEntries))
+	copy(entriesCopy, logEntries)
+	logMutex.Unlock()
+
+	renderLogEntries(entriesCopy)
 	return index
 }
 
 func updateLog(index int, output string, isError bool) {
 	logMutex.Lock()
-	defer logMutex.Unlock()
 
 	if index >= 0 && index < len(logEntries) {
+		if logFile != nil {
+			timestamp := time.Now().Format("15:04:05.000")
+			status := "completed"
+			if isError {
+				status = "error"
+			}
+			fmt.Fprintf(logFile, "%s $ adb %s [%s] - %s\n", timestamp, logEntries[index].command, status, output)
+			logFile.Sync()
+		}
+
 		logEntries[index].output = output
 		logEntries[index].isError = isError
-		updateLogView()
 	}
+
+	entriesCopy := make([]logEntry, len(logEntries))
+	copy(entriesCopy, logEntries)
+	logMutex.Unlock()
+
+	renderLogEntries(entriesCopy)
 }
 
 func clearLog() {
 	logMutex.Lock()
-	defer logMutex.Unlock()
-
 	logEntries = nil
-	updateLogView()
+	logMutex.Unlock()
+
+	renderLogEntries(nil)
 	showInfoMsg("Log cleared")
 }
 
-func updateLogView() {
+func renderLogEntries(entries []logEntry) {
 	if logView == nil {
 		return
 	}
@@ -124,12 +165,12 @@ func updateLogView() {
 	app.QueueUpdateDraw(func() {
 		logView.Clear()
 
-		if len(logEntries) == 0 {
+		if len(entries) == 0 {
 			fmt.Fprintf(logView, "No ADB commands yet. Press 'c' to clear this log.")
 			return
 		}
 
-		for _, entry := range logEntries {
+		for _, entry := range entries {
 			timestamp := entry.timestamp.Format("15:04:05.000")
 			color := ""
 			if entry.isError {

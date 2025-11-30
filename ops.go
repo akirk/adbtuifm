@@ -21,6 +21,8 @@ type operation struct {
 	progress   progressMode
 	ctx        context.Context
 	cancel     context.CancelFunc
+	sortBy     string
+	arrangeBy  string
 }
 
 type ifaceMode int
@@ -84,7 +86,7 @@ var (
 	opPathLock sync.Mutex
 )
 
-func newOperation(opmode opsMode) operation {
+func newOperation(opmode opsMode, sortBy, arrangeBy string) operation {
 	transfer := localToLocal
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -95,6 +97,8 @@ func newOperation(opmode opsMode) operation {
 		cancel:     cancel,
 		transfer:   transfer,
 		totalBytes: -1,
+		sortBy:     sortBy,
+		arrangeBy:  arrangeBy,
 	}
 }
 
@@ -103,8 +107,10 @@ func startOperation(srcPane, dstPane *dirPane, opmode opsMode, overwrite bool, m
 	var src, dst string
 
 	total := len(mselect)
+	addLog("startOperation", fmt.Sprintf("total=%d, dstPane.mode=%v", total, dstPane.mode), false)
 
-	op := newOperation(opmode)
+	sortBy, arrangeBy := srcPane.getSortMethod()
+	op := newOperation(opmode, sortBy, arrangeBy)
 
 	op.opSetStatus(opInProgress, nil)
 
@@ -122,6 +128,8 @@ func startOperation(srcPane, dstPane *dirPane, opmode opsMode, overwrite bool, m
 			}
 		}
 
+		addLog("startOperation", fmt.Sprintf("loop[%d]: src=%s dst=%s", sel, src, dst), false)
+
 		if isOpen(src, dst, dstPane.table != nil) {
 			err = fmt.Errorf("'%s' is open", filepath.Base(src))
 			break
@@ -130,24 +138,30 @@ func startOperation(srcPane, dstPane *dirPane, opmode opsMode, overwrite bool, m
 		if opmode == opCopy && !overwrite {
 			dst, err = altPath(src, dst, dstPane.mode)
 			if err != nil {
+				addLog("startOperation", fmt.Sprintf("altPath error: %v", err), true)
 				break
 			}
 		}
 
 		if err = isSamePath(src, dst, opmode); err != nil {
+			addLog("startOperation", fmt.Sprintf("isSamePath error: %v", err), true)
 			break
 		}
 
 		op.transfer = transfermode(opmode, msel.smode, dstPane.mode)
+		addLog("startOperation", fmt.Sprintf("transfer mode: %v", op.transfer), false)
 
 		if err = op.setNewProgress(src, dst, sel, total); err != nil {
+			addLog("startOperation", fmt.Sprintf("setNewProgress error: %v", err), true)
 			break
 		}
+		addLog("startOperation", fmt.Sprintf("progress set, totalFiles=%d totalBytes=%d", op.totalFile, op.totalBytes), false)
 
 		if err = addOpsPath(src, dst); err != nil {
 			break
 		}
 
+		addLog("startOperation", "starting transfer...", false)
 		switch op.transfer {
 		case localToLocal:
 			err = op.localOps(src, dst)
@@ -155,6 +169,7 @@ func startOperation(srcPane, dstPane *dirPane, opmode opsMode, overwrite bool, m
 		default:
 			err = op.adbOps(src, dst)
 		}
+		addLog("startOperation", fmt.Sprintf("transfer complete, err=%v", err), err != nil)
 
 		rmOpsPath(src, dst)
 
@@ -367,6 +382,11 @@ func confirmOperation(selPane, auxPane *dirPane, opmode opsMode, overwrite bool,
 	doFunc := func() {
 		if mselect == nil {
 			mselect = getselection()
+		}
+
+		addLog("confirmOperation", fmt.Sprintf("opmode=%s, selections=%d, dstPath=%s", opmode.String(), len(mselect), auxPane.getPath()), false)
+		for i, sel := range mselect {
+			addLog("confirmOperation", fmt.Sprintf("  [%d] src=%s smode=%v", i, sel.path, sel.smode), false)
 		}
 
 		go startOperation(selPane, auxPane, opmode, overwrite, mselect)

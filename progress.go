@@ -79,6 +79,7 @@ func (o *operation) Write(b []byte) (n int, err error) {
 		} else {
 			o.progress.prog.SetText("  " + string(b))
 		}
+		updateProgressDialog()
 	})
 
 	return 0, nil
@@ -86,7 +87,9 @@ func (o *operation) Write(b []byte) (n int, err error) {
 
 func (o *operation) updatePb() {
 	o.currFile++
-	o.progress.pbar.Describe(o.getDescription())
+	if o.progress.pbar != nil {
+		o.progress.pbar.Describe(o.getDescription())
+	}
 }
 
 func (o *operation) setNewProgress(src, dst string, selindex, seltotal int) error {
@@ -119,17 +122,23 @@ func (o *operation) setNewProgress(src, dst string, selindex, seltotal int) erro
 		tpath += fmt.Sprintf(" (%d of %d)", selindex+1, seltotal)
 	}
 
+	addLog("setNewProgress", "calling updateOpsView", false)
 	o.updateOpsView(false, tpath, pstr)
+	addLog("setNewProgress", "updateOpsView returned", false)
 
 	if o.opmode != opRename || o.opmode != opMkdir {
 		if o.opmode == opCopy {
+			addLog("setNewProgress", "calling getTotalFiles", false)
 			err := o.getTotalFiles(src)
 			if err != nil {
 				return err
 			}
+			addLog("setNewProgress", fmt.Sprintf("getTotalFiles done: files=%d bytes=%d", o.totalFile, o.totalBytes), false)
 		}
 
+		addLog("setNewProgress", "calling createPb", false)
 		o.createPb()
+		addLog("setNewProgress", "createPb done", false)
 
 		if o.opmode != opCopy || o.transfer == adbToAdb {
 			go func() {
@@ -165,6 +174,7 @@ func (o *operation) opSetStatus(status opStatus, err error) {
 	case opInProgress:
 		jobNum += opRowNum
 		o.updateOpsView(true)
+		// Don't show dialog yet - progress fields not initialized
 
 	case opDone:
 		o.cancel()
@@ -178,6 +188,10 @@ func (o *operation) opSetStatus(status opStatus, err error) {
 		}
 
 		o.jobFinished()
+
+		if jobNum == 0 {
+			hideProgressDialog()
+		}
 	}
 
 	if o.opmode != opRename && o.opmode != opMkdir {
@@ -224,5 +238,12 @@ func (o *operation) updateOpsView(init bool, msg ...string) {
 			SetExpansion(1).
 			SetSelectable(false).
 			SetAlign(tview.AlignLeft))
+
+		// Show dialog on first real update (when progress fields are initialized)
+		if jobNum == opRowNum && !progDialog.visible {
+			showProgressDialog(o)
+		}
+
+		updateProgressDialog()
 	})
 }
