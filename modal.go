@@ -584,11 +584,9 @@ func hideProgressDialog() {
 		return
 	}
 
-	go app.QueueUpdateDraw(func() {
-		progDialog.visible = false
-		progDialog.operation = nil
-		pages.HidePage("progressmodal")
-	})
+	progDialog.visible = false
+	progDialog.operation = nil
+	pages.HidePage("progressmodal")
 }
 
 func updateProgressDialog() {

@@ -187,11 +187,13 @@ func (o *operation) opSetStatus(status opStatus, err error) {
 			}
 		}
 
-		o.jobFinished()
+		go app.QueueUpdateDraw(func() {
+			o.jobFinished()
 
-		if jobNum == 0 {
-			hideProgressDialog()
-		}
+			if jobNum == 0 {
+				hideProgressDialog()
+			}
+		})
 	}
 
 	if o.opmode != opRename && o.opmode != opMkdir {

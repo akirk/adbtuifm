@@ -324,34 +324,32 @@ func rmOpsPath(src, dst string) {
 }
 
 func iterOps(all bool, o *operation, cfunc func(row, rows int, op *operation)) {
-	go app.QueueUpdateDraw(func() {
-		rows := opsView.GetRowCount()
+	rows := opsView.GetRowCount()
 
-		for i := 0; i < rows; i++ {
-			cell := opsView.GetCell(i, 0)
-			if cell == nil || cell.NotSelectable {
+	for i := 0; i < rows; i++ {
+		cell := opsView.GetCell(i, 0)
+		if cell == nil || cell.NotSelectable {
+			continue
+		}
+
+		ref := cell.GetReference()
+		if ref == nil {
+			continue
+		}
+
+		op := ref.(*operation)
+		if o != nil {
+			if op != o {
 				continue
-			}
-
-			ref := cell.GetReference()
-			if ref == nil {
-				continue
-			}
-
-			op := ref.(*operation)
-			if o != nil {
-				if op != o {
-					continue
-				}
-			}
-
-			cfunc(i, rows, op)
-
-			if !all {
-				break
 			}
 		}
-	})
+
+		cfunc(i, rows, op)
+
+		if !all {
+			break
+		}
+	}
 }
 
 func (o *operation) jobFinished() {
