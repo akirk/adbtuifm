@@ -631,7 +631,7 @@ func (p *dirPane) updateRef(lock bool) {
 		return
 	}
 
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		update()
 	})
 }
@@ -675,7 +675,7 @@ func (p *dirPane) setPaneSelectable(status bool) {
 		return
 	}
 
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		p.table.SetSelectable(false, false)
 	})
 }

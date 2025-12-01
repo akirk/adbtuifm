@@ -73,7 +73,7 @@ func (o *operation) Write(b []byte) (n int, err error) {
 	default:
 	}
 
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		if o.totalBytes > -1 {
 			o.progress.prog.SetText(string(b))
 		} else {
@@ -205,7 +205,7 @@ func (o *operation) opSetStatus(status opStatus, err error) {
 }
 
 func (o *operation) updateOpsView(init bool, msg ...string) {
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		if init {
 			opsView.SetCell(o.id, 0, tview.NewTableCell("").
 				SetSelectable(false))

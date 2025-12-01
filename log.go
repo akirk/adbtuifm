@@ -80,19 +80,21 @@ func addLog(command string, output string, isError bool) {
 		logFile.Sync()
 	}
 
-	logMutex.Lock()
-	entry := logEntry{
-		timestamp: time.Now(),
-		command:   command,
-		output:    output,
-		isError:   isError,
-	}
-	logEntries = append(logEntries, entry)
-	entriesCopy := make([]logEntry, len(logEntries))
-	copy(entriesCopy, logEntries)
-	logMutex.Unlock()
+	go func() {
+		logMutex.Lock()
+		entry := logEntry{
+			timestamp: time.Now(),
+			command:   command,
+			output:    output,
+			isError:   isError,
+		}
+		logEntries = append(logEntries, entry)
+		entriesCopy := make([]logEntry, len(logEntries))
+		copy(entriesCopy, logEntries)
+		logMutex.Unlock()
 
-	renderLogEntries(entriesCopy)
+		renderLogEntries(entriesCopy)
+	}()
 }
 
 func startLog(command string) int {
@@ -119,7 +121,7 @@ func startLog(command string) int {
 	copy(entriesCopy, logEntries)
 	logMutex.Unlock()
 
-	renderLogEntries(entriesCopy)
+	go renderLogEntries(entriesCopy)
 	return index
 }
 
@@ -145,7 +147,7 @@ func updateLog(index int, output string, isError bool) {
 	copy(entriesCopy, logEntries)
 	logMutex.Unlock()
 
-	renderLogEntries(entriesCopy)
+	go renderLogEntries(entriesCopy)
 }
 
 func clearLog() {
@@ -162,7 +164,7 @@ func renderLogEntries(entries []logEntry) {
 		return
 	}
 
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		logView.Clear()
 
 		if len(entries) == 0 {

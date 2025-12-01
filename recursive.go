@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/dolmen-go/contextio"
 	"github.com/schollz/progressbar/v3"
@@ -175,77 +174,31 @@ func (o *operation) pushFile(src, dst string, entry os.FileInfo, device *adb.Dev
 		return nil
 	}
 
-	logIndex := startLog(fmt.Sprintf("push %s %s (%.1f MB)", src, dst, float64(entry.Size())/(1024*1024)))
+	// Use directory as destination, let adb figure out the filename
+	dstDir := filepath.Dir(dst)
+	logIndex := startLog(fmt.Sprintf("push %s %s (%.1f MB)", filepath.Base(src), dstDir, float64(entry.Size())/(1024*1024)))
 
-	// Use script command to capture adb push with PTY for live progress
-	// script -q /dev/null runs command with a PTY but discards the typescript file
-	cmd := exec.CommandContext(o.ctx, "script", "-q", "/dev/null", "adb", "push", src, dst)
-
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Start(); err != nil {
-		addLog("pushFile", fmt.Sprintf("adb push start error: %v", err), true)
-		return err
-	}
-
-	// Read output and capture progress (update UI less frequently)
-	var lastProgress string
-	go func() {
-		buf := make([]byte, 512)
-		for {
-			n, readErr := stdoutPipe.Read(buf)
-			if n > 0 {
-				// Parse the output - look for percentage
-				output := string(buf[:n])
-				// Split by \r to get latest progress line
-				parts := strings.Split(output, "\r")
-				for _, part := range parts {
-					part = strings.TrimSpace(part)
-					if part != "" && strings.Contains(part, "%") {
-						lastProgress = part
-					}
-				}
-			}
-			if readErr != nil {
-				break
-			}
-		}
-	}()
-
-	// Update progress in UI periodically
-	done := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(500 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				if lastProgress != "" {
-					updateLog(logIndex, lastProgress, false)
-				}
-			case <-done:
-				return
-			}
-		}
-	}()
-
-	err = cmd.Wait()
-	close(done) // Stop the progress updater
+	// Use adb push directly
+	cmd := exec.CommandContext(o.ctx, "adb", "push", src, dstDir)
+	output, err := cmd.CombinedOutput()
+	outStr := strings.TrimSpace(string(output))
 
 	if err != nil {
-		errMsg := fmt.Sprintf("error: %v", err)
-		addLog("pushFile", fmt.Sprintf("adb push error: %v", err), true)
+		errMsg := outStr
+		if errMsg == "" {
+			errMsg = err.Error()
+		}
+		addLog("pushFile", fmt.Sprintf("adb push error: %v - %s", err, outStr), true)
 		updateLog(logIndex, errMsg, true)
-		return err
+		return fmt.Errorf("%s", errMsg)
 	}
 
-	addLog("pushFile", "adb push done", false)
-	updateLog(logIndex, "success", false)
+	addLog("pushFile", fmt.Sprintf("adb push done: %s", outStr), false)
+	updateLog(logIndex, outStr, false)
 
+	addLog("pushFile", "calling updatePb", false)
 	o.updatePb()
+	addLog("pushFile", "updatePb done, returning", false)
 
 	return nil
 }

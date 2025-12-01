@@ -55,7 +55,7 @@ func startStatus() {
 				text = msg.text
 			}
 
-			app.QueueUpdateDraw(func() {
+			go app.QueueUpdateDraw(func() {
 				if !msg.persist || (msg.text == "" && msg.persist) {
 					statusmsg.SetText(msg.text)
 				}
@@ -68,7 +68,7 @@ func startStatus() {
 
 			cleared = true
 
-			app.QueueUpdateDraw(func() {
+			go app.QueueUpdateDraw(func() {
 				statusmsg.SetText(text)
 			})
 		}
@@ -319,7 +319,7 @@ func (p *dirPane) showFilterInput() {
 				}
 			}
 
-			app.QueueUpdateDraw(func() {
+			go app.QueueUpdateDraw(func() {
 				p.table.Clear()
 				for _, entry := range filtered {
 					p.updateDirPane(entry.row, entry.sel, entry.dir)

@@ -313,7 +313,7 @@ func resizeDirEntries(width int) {
 				continue
 			}
 
-			app.QueueUpdateDraw(func() {
+			go app.QueueUpdateDraw(func() {
 				maxWidth := (width / 2) - 30
 				if maxWidth < 30 {
 					maxWidth = 30
@@ -342,7 +342,7 @@ func resizeDirEntries(width int) {
 }
 
 func (p *dirPane) createDirList(cdFwd, cdBack bool, prevDir string) {
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		var pos int
 		var row int
 

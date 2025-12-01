@@ -572,7 +572,7 @@ func showProgressDialog(o *operation) {
 		return
 	}
 
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		progDialog.operation = o
 		progDialog.visible = true
 		pages.ShowPage("progressmodal")
@@ -584,7 +584,7 @@ func hideProgressDialog() {
 		return
 	}
 
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		progDialog.visible = false
 		progDialog.operation = nil
 		pages.HidePage("progressmodal")
@@ -606,7 +606,7 @@ func updateProgressDialog() {
 		return
 	}
 
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		// Double-check operation is still valid
 		if progDialog.operation == nil || !progDialog.visible {
 			return

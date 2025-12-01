@@ -324,7 +324,7 @@ func rmOpsPath(src, dst string) {
 }
 
 func iterOps(all bool, o *operation, cfunc func(row, rows int, op *operation)) {
-	app.QueueUpdateDraw(func() {
+	go app.QueueUpdateDraw(func() {
 		rows := opsView.GetRowCount()
 
 		for i := 0; i < rows; i++ {
